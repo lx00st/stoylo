@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parking Map with Search - Saint Petersburg</title>
+    <style>
+        html, body, #map {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Стили для кастомного поискового поля */
+        .custom-search {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            max-width: 90%;
+            z-index: 1000;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            font-family: Arial, sans-serif;
+        }
+        
+        .custom-search input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            box-sizing: border-box;
+        }
+        
+        .custom-search input:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52,152,219,0.3);
+        }
+        
+        .custom-search .results {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1001;
+        }
+        
+        .custom-search .results.active {
+            display: block;
+        }
+        
+        .custom-search .result-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .custom-search .result-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        
+        .legend h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .legend-cluster {
+            width: 24px;
+            height: 24px;
+            background: #3498db;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            text-align: center;
+            line-height: 24px;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .loading-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <!-- Кастомное поисковое поле -->
+    <div class="custom-search">
+        <input type="text" id="search-input" placeholder="🔍 Search for parking or address... (e.g., Palace Square, Nevsky)">
+        <div class="results" id="search-results"></div>
+    </div>
+    
+    <div class="legend">
+        <h4>🚗 Parking Occupancy</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #2ecc71;"></div>
+            <span>Many spots free (>40%)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #f39c12;"></div>
+            <span>Few spots free (15-40%)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #e74c3c;"></div>
+            <span>Almost full (&lt;15%)</span>
+        </div>
+        <div class="legend-item" style="margin-top: 5px;">
+            <div class="legend-cluster">12</div>
+            <span>Cluster (group of parkings)</span>
+        </div>
+    </div>
+
+    <script src="https://api-maps.yandex.ru/v3/?apikey=bb36a041-64be-4fd6-b306-a246fe863173&lang=en_US"></script>
+    <script>
+        async function initMap() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading-message';
+            loadingDiv.textContent = 'Loading map...';
+            document.body.appendChild(loadingDiv);
+            
+            try {
+                if (typeof ymaps3 === 'undefined') {
+                    throw new Error('Yandex Maps API failed to load');
+                }
+                
+                await ymaps3.ready;
+                
+                // Загружаем компоненты
+                const { 
+                    YMap, 
+                    YMapDefaultSchemeLayer, 
+                    YMapFeatureDataSource, 
+                    YMapLayer, 
+                    YMapMarker 
+                } = ymaps3;
+                
+                // ИСПРАВЛЕНО: используем правильный пакет кластеризатора
+                const { YMapClusterer, clusterByGrid } = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
+                
+                // Создаём карту
+                const map = new YMap(
+                    document.getElementById('map'),
+                    {
+                        location: {
+                            center: [30.315868, 59.938732],
+                            zoom: 13
+                        }
+                    }
+                );
+                
+                // Добавляем подложку
+                map.addChild(new YMapDefaultSchemeLayer());
+                
+                // Добавляем источник данных
+                map.addChild(new YMapFeatureDataSource({ id: 'parking-source' }));
+                
+                // Добавляем слой
+                map.addChild(new YMapLayer({ 
+                    source: 'parking-source', 
+                    type: 'markers', 
+                    zIndex: 1800 
+                }));
+                
+                // ========== ПОИСК (исправленная версия) ==========
+                const searchInput = document.getElementById('search-input');
+                const resultsContainer = document.getElementById('search-results');
+                
+                // Функция поиска через HTTP Геокодер (более стабильный)
+                async function performSearch(query) {
+                    if (!query || query.length < 2) {
+                        resultsContainer.classList.remove('active');
+                        return;
+                    }
+                    
+                    try {
+                        // Используем HTTP Геокодер API Яндекс.Карт
+                        const apiKey = '8fc5e4ba-8ce3-4230-8529-4898346c54ab'; // используем тот же ключ
+                        const url = `https://geocode-maps.yandex.ru/1.x/?apikey=${apiKey}&geocode=${encodeURIComponent(query)}&format=json&results=10`;
+                        
+                        const response = await fetch(url);
+                        const data = await response.json();
+                        
+                        const featureMembers = data.response.GeoObjectCollection.featureMember;
+                        
+                        if (featureMembers && featureMembers.length > 0) {
+                            resultsContainer.innerHTML = '';
+                            
+                            featureMembers.forEach(member => {
+                                const geoObject = member.GeoObject;
+                                const name = geoObject.name;
+                                const description = geoObject.description || '';
+                                const address = geoObject.metaDataProperty.GeocoderMetaData.text;
+                                const point = geoObject.Point.pos;
+                                const coordinates = point.split(' ').map(Number).reverse(); // [lat, lon]
+                                
+                                const item = document.createElement('div');
+                                item.className = 'result-item';
+                                item.innerHTML = `<strong>${name}</strong><br><small>${description || address}</small>`;
+                                item.onclick = () => {
+                                    // Перемещаем карту к выбранному месту
+                                    map.setLocation({
+                                        center: [coordinates[1], coordinates[0]], // [lon, lat]
+                                        zoom: 16,
+                                        duration: 300
+                                    });
+                                    resultsContainer.classList.remove('active');
+                                    searchInput.value = name;
+                                };
+                                resultsContainer.appendChild(item);
+                            });
+                            resultsContainer.classList.add('active');
+                        } else {
+                            resultsContainer.innerHTML = '<div class="result-item">No results found</div>';
+                            resultsContainer.classList.add('active');
+                        }
+                    } catch (error) {
+                        console.error('Search error:', error);
+                        resultsContainer.innerHTML = '<div class="result-item">Search error. Please try again.</div>';
+                        resultsContainer.classList.add('active');
+                    }
+                }
+                
+                // Обработчик ввода с debounce
+                let searchTimeout;
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => performSearch(e.target.value), 300);
+                });
+                
+                // Поиск по Enter
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        clearTimeout(searchTimeout);
+                        performSearch(searchInput.value);
+                    }
+                });
+                
+                // Закрываем результаты при клике вне
+                document.addEventListener('click', (e) => {
+                    if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+                        resultsContainer.classList.remove('active');
+                    }
+                });
+                
+                // ========== ДАННЫЕ О ПАРКОВКАХ ==========
+                const parkings = [
+                    { lat: 59.938732, lon: 30.315868, name: "Palace Square", free: 23, total: 50, address: "Palace Sq., 1" },
+                    { lat: 59.935101, lon: 30.324104, name: "Nevsky Prospekt 30", free: 5, total: 30, address: "Nevsky Ave., 30" },
+                    { lat: 59.934280, lon: 30.306633, name: "St. Isaac's Cathedral", free: 12, total: 40, address: "Isaac's Sq., 4" },
+                    { lat: 59.932800, lon: 30.295700, name: "Mariinsky Theatre", free: 8, total: 25, address: "Theatre Sq., 1" },
+                    { lat: 59.944700, lon: 30.323700, name: "Summer Garden", free: 18, total: 35, address: "Kutuzov Emb., 2" },
+                    { lat: 59.956800, lon: 30.308300, name: "Petrograd Embankment", free: 42, total: 80, address: "Petrograd Emb., 20" },
+                    { lat: 59.961200, lon: 30.300500, name: "Kronverksky Ave", free: 3, total: 15, address: "Kronverksky Ave., 49" },
+                    { lat: 59.959500, lon: 30.319000, name: "Kamenny Island Ave", free: 28, total: 60, address: "Kamenny Island Ave., 35" },
+                    { lat: 59.942500, lon: 30.282200, name: "Vasileostrovsky Market", free: 14, total: 45, address: "Bolshoy Ave. V.O., 16" },
+                    { lat: 59.940300, lon: 30.275800, name: "Makarov Embankment", free: 7, total: 25, address: "Makarov Emb., 2" },
+                    { lat: 59.945100, lon: 30.270600, name: "Sea Port", free: 55, total: 120, address: "Maritime Glory Sq., 1" },
+                    { lat: 59.922100, lon: 30.319400, name: "Moscow Station", free: 19, total: 55, address: "Uprising Sq., 2" },
+                    { lat: 59.900800, lon: 30.329700, name: "Victory Park", free: 32, total: 70, address: "Moskovsky Ave., 188" },
+                    { lat: 59.895500, lon: 30.335600, name: "Elektrosila", free: 11, total: 35, address: "Moskovsky Ave., 139" },
+                    { lat: 59.928500, lon: 30.342900, name: "Tauride Garden", free: 21, total: 40, address: "Tchaikovsky St., 50" },
+                    { lat: 59.924400, lon: 30.351200, name: "Smolny Cathedral", free: 16, total: 45, address: "Proletarian Dictatorship Sq., 1" },
+                    { lat: 59.914500, lon: 30.295800, name: "Institute of Technology", free: 4, total: 20, address: "Moskovsky Ave., 26" },
+                    { lat: 59.927800, lon: 30.262200, name: "Mining University", free: 27, total: 55, address: "21st Line V.O., 2" },
+                    { lat: 59.950300, lon: 30.241700, name: "Primorsky Victory Park", free: 45, total: 100, address: "Krestovsky Ave., 23" },
+                    { lat: 59.953200, lon: 30.220600, name: "Gazprom Arena Stadium", free: 380, total: 800, address: "Football Alley, 1" },
+                    { lat: 59.969500, lon: 30.344500, name: "Piskaryovsky Ave", free: 38, total: 90, address: "Piskaryovsky Ave., 25" },
+                    { lat: 59.886600, lon: 30.319700, name: "Kupchino", free: 52, total: 110, address: "Malaya Balkanskaya St., 23" },
+                    { lat: 59.864100, lon: 30.265300, name: "Zvezdnaya", free: 31, total: 75, address: "Dunaisky Ave., 48" },
+                    { lat: 59.979200, lon: 30.265600, name: "Ozerki", free: 25, total: 60, address: "Vyborgskoye Sh., 23" }
+                ];
+                
+                function getColorByOccupancy(free, total) {
+                    if (total === 0) return '#95a5a6';
+                    const freePercent = (free / total) * 100;
+                    if (freePercent > 40) return '#2ecc71';
+                    if (freePercent > 15) return '#f39c12';
+                    return '#e74c3c';
+                }
+                
+                const features = parkings.map((parking, index) => ({
+                    type: 'Feature',
+                    id: index,
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [parking.lon, parking.lat]
+                    },
+                    properties: {
+                        name: parking.name,
+                        free: parking.free,
+                        total: parking.total,
+                        address: parking.address
+                    }
+                }));
+                
+                const createMarker = (feature) => {
+                    const props = feature.properties;
+                    const color = getColorByOccupancy(props.free, props.total);
+                    
+                    const markerDiv = document.createElement('div');
+                    markerDiv.textContent = props.free;
+                    markerDiv.style.cssText = `
+                        background-color: ${color};
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        color: white;
+                        font-weight: bold;
+                        font-size: 13px;
+                        font-family: Arial, sans-serif;
+                        border: 2px solid white;
+                        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                    `;
+                    
+                    markerDiv.onmouseenter = () => { markerDiv.style.transform = 'scale(1.1)'; };
+                    markerDiv.onmouseleave = () => { markerDiv.style.transform = 'scale(1)'; };
+                    markerDiv.onclick = () => {
+                        const freePercent = Math.round((props.free / props.total) * 100);
+                        alert(`📍 ${props.name}\n\n🚗 Free: ${props.free} of ${props.total}\n📊 Free: ${freePercent}%\n🏠 ${props.address || 'No address'}`);
+                    };
+                    
+                    return new YMapMarker(
+                        { coordinates: feature.geometry.coordinates, source: 'parking-source' },
+                        markerDiv
+                    );
+                };
+                
+                const createCluster = (coordinates, features) => {
+                    const count = features.length;
+                    let totalFree = 0;
+                    let totalSpots = 0;
+                    features.forEach(f => {
+                        totalFree += f.properties.free;
+                        totalSpots += f.properties.total;
+                    });
+                    const avgFreePercent = totalSpots > 0 ? Math.round((totalFree / totalSpots) * 100) : 0;
+                    
+                    const clusterDiv = document.createElement('div');
+                    clusterDiv.style.cssText = `
+                        background-color: #3498db;
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 50%;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                        color: white;
+                        font-family: Arial, sans-serif;
+                        font-weight: bold;
+                        border: 2px solid white;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                    `;
+                    
+                    const numberSpan = document.createElement('span');
+                    numberSpan.textContent = count;
+                    numberSpan.style.cssText = 'font-size: 16px;';
+                    
+                    const percentSpan = document.createElement('span');
+                    percentSpan.textContent = `${avgFreePercent}%`;
+                    percentSpan.style.cssText = 'font-size: 9px; opacity: 0.9;';
+                    
+                    clusterDiv.appendChild(numberSpan);
+                    clusterDiv.appendChild(percentSpan);
+                    
+                    clusterDiv.onmouseenter = () => { clusterDiv.style.transform = 'scale(1.1)'; };
+                    clusterDiv.onmouseleave = () => { clusterDiv.style.transform = 'scale(1)'; };
+                    clusterDiv.onclick = () => {
+                        alert(`📦 Cluster contains ${count} parking(s)\n🟢 Average ${avgFreePercent}% free`);
+                    };
+                    
+                    return new YMapMarker(
+                        { coordinates: coordinates, source: 'parking-source' },
+                        clusterDiv
+                    );
+                };
+                
+                const clusterer = new YMapClusterer({
+                    features: features,
+                    method: clusterByGrid({ gridSize: 64 }),
+                    marker: createMarker,
+                    cluster: createCluster
+                });
+                
+                map.addChild(clusterer);
+                
+                // Убираем сообщение о загрузке
+                if (loadingDiv) loadingDiv.remove();
+                
+                console.log(`✅ Map loaded! Added ${parkings.length} parking spots with search and clustering.`);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                if (loadingDiv) loadingDiv.remove();
+                document.getElementById('map').innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 100%; font-family: Arial, sans-serif; background: #f5f5f5;">
+                        <div style="text-align: center; padding: 30px; background: white; border-radius: 12px;">
+                            <h3 style="color: #e74c3c;">❌ Error: ${error.message}</h3>
+                            <p style="margin-top: 10px;">Make sure you have internet connection and valid API key.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMap);
+        } else {
+            initMap();
+        }
+    </script>
+</body>
+</html>
