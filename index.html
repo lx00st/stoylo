@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parking Map with Search - Saint Petersburg</title>
+    <title>Parking Map with Click Marker - Fixed</title>
     <style>
         html, body, #map {
             height: 100%;
@@ -11,7 +11,7 @@
             padding: 0;
         }
         
-        /* Стили для кастомного поискового поля */
+        /* Кастомное поисковое поле */
         .custom-search {
             position: absolute;
             top: 20px;
@@ -38,7 +38,6 @@
         
         .custom-search input:focus {
             border-color: #3498db;
-            box-shadow: 0 0 5px rgba(52,152,219,0.3);
         }
         
         .custom-search .results {
@@ -67,6 +66,63 @@
         
         .custom-search .result-item:hover {
             background: #f5f5f5;
+        }
+        
+        /* Стили для попапа с кнопкой маршрута */
+        .route-popup {
+            position: absolute;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            padding: 16px 20px;
+            font-family: Arial, sans-serif;
+            z-index: 1001;
+            min-width: 250px;
+            text-align: center;
+            pointer-events: auto;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .route-popup .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            cursor: pointer;
+            font-size: 18px;
+            color: #999;
+        }
+        
+        .route-popup .close-btn:hover {
+            color: #333;
+        }
+        
+        .route-popup h4 {
+            margin: 0 0 8px 0;
+            color: #333;
+        }
+        
+        .route-popup .coords {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 12px;
+            word-break: break-all;
+        }
+        
+        .route-popup .nav-btn {
+            background: #ffcc00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        
+        .route-popup .nav-btn:hover {
+            background: #e6b800;
         }
         
         .legend {
@@ -115,26 +171,58 @@
             font-weight: bold;
         }
         
-        .loading-message {
+        .instruction {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
             font-family: Arial, sans-serif;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        
+        /* Стили для маркера последнего клика - ПРОСТЫЕ, без псевдоэлементов */
+        .click-marker {
+            width: 40px;
+            height: 40px;
+            background-color: #e74c3c;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .click-marker:hover {
+            transform: scale(1.1);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .click-marker.pulse {
+            animation: pulse 0.4s ease-in-out;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
     
-    <!-- Кастомное поисковое поле -->
     <div class="custom-search">
-        <input type="text" id="search-input" placeholder="🔍 Search for parking or address... (e.g., Palace Square, Nevsky)">
+        <input type="text" id="search-input" placeholder="🔍 Search for parking or address...">
         <div class="results" id="search-results"></div>
     </div>
     
@@ -156,16 +244,19 @@
             <div class="legend-cluster">12</div>
             <span>Cluster (group of parkings)</span>
         </div>
+        <div class="legend-item" style="margin-top: 5px;">
+            <div style="width:20px;height:20px;background:#e74c3c;border-radius:50%;margin-right:8px;border:1px solid white;box-shadow:0 1px 2px rgba(0,0,0,0.2);"></div>
+            <span>📍 Last click marker</span>
+        </div>
+    </div>
+    
+    <div class="instruction">
+        💡 Click anywhere on the map → red marker + route button
     </div>
 
     <script src="https://api-maps.yandex.ru/v3/?apikey=bb36a041-64be-4fd6-b306-a246fe863173&lang=en_US"></script>
     <script>
         async function initMap() {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'loading-message';
-            loadingDiv.textContent = 'Loading map...';
-            document.body.appendChild(loadingDiv);
-            
             try {
                 if (typeof ymaps3 === 'undefined') {
                     throw new Error('Yandex Maps API failed to load');
@@ -173,19 +264,16 @@
                 
                 await ymaps3.ready;
                 
-                // Загружаем компоненты
                 const { 
                     YMap, 
                     YMapDefaultSchemeLayer, 
-                    YMapFeatureDataSource, 
-                    YMapLayer, 
-                    YMapMarker 
+                    YMapDefaultFeaturesLayer,
+                    YMapMarker,
+                    YMapListener
                 } = ymaps3;
                 
-                // ИСПРАВЛЕНО: используем правильный пакет кластеризатора
                 const { YMapClusterer, clusterByGrid } = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
                 
-                // Создаём карту
                 const map = new YMap(
                     document.getElementById('map'),
                     {
@@ -199,21 +287,131 @@
                 // Добавляем подложку
                 map.addChild(new YMapDefaultSchemeLayer());
                 
-                // Добавляем источник данных
-                map.addChild(new YMapFeatureDataSource({ id: 'parking-source' }));
+                // ВАЖНО: Добавляем слой для меток (без него маркеры могут не отображаться!)
+                // YMapDefaultFeaturesLayer - это стандартный слой для маркеров [citation:6]
+                map.addChild(new YMapDefaultFeaturesLayer());
                 
-                // Добавляем слой
-                map.addChild(new YMapLayer({ 
-                    source: 'parking-source', 
-                    type: 'markers', 
-                    zIndex: 1800 
-                }));
+                // ========== МАРКЕР ПОСЛЕДНЕГО КЛИКА ==========
+                let currentClickMarker = null;
+                let currentPopup = null;
                 
-                // ========== ПОИСК (исправленная версия) ==========
+                // Функция удаления маркера
+                function removeClickMarker() {
+                    if (currentClickMarker) {
+                        map.removeChild(currentClickMarker);
+                        currentClickMarker = null;
+                    }
+                }
+                
+                // Функция удаления попапа
+                function removePopup() {
+                    if (currentPopup) {
+                        currentPopup.remove();
+                        currentPopup = null;
+                    }
+                }
+                
+                // Функция создания HTML элемента маркера
+                function createClickMarkerElement() {
+                    const div = document.createElement('div');
+                    div.className = 'click-marker';
+                    div.textContent = '📍';
+                    return div;
+                }
+                
+                // Функция отображения попапа
+                function showRoutePopup(lat, lon, screenX, screenY) {
+                    removePopup();
+                    
+                    const popup = document.createElement('div');
+                    popup.className = 'route-popup';
+                    popup.innerHTML = `
+                        <div class="close-btn">×</div>
+                        <h4>📍 Selected location</h4>
+                        <div class="coords">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+                        <button class="nav-btn">🚗 Open route in Yandex Navigator</button>
+                    `;
+                    
+                    document.body.appendChild(popup);
+                    currentPopup = popup;
+                    
+                    popup.querySelector('.close-btn').onclick = () => removePopup();
+                    
+                    popup.querySelector('.nav-btn').onclick = () => {
+                        const url = `yandexnavi://build_route_on_map?lat_to=${lat}&lon_to=${lon}`;
+                        window.location.href = url;
+                    };
+                    
+                    if (screenX && screenY) {
+                        popup.style.left = (screenX - popup.offsetWidth / 2) + 'px';
+                        popup.style.top = (screenY - 70) + 'px';
+                    }
+                }
+                
+                // ========== ГЛАВНЫЙ СЛУШАТЕЛЬ КЛИКОВ ==========
+                const mapListener = new YMapListener({
+                    layer: 'any',
+                    onClick: (layer, coordinates, object) => {
+                        if (coordinates && coordinates.length === 2) {
+                            const lon = coordinates[0];
+                            const lat = coordinates[1];
+                            
+                            console.log(`Click detected at: ${lat}, ${lon}`);
+                            
+                            // Удаляем старый маркер и попап
+                            removeClickMarker();
+                            removePopup();
+                            
+                            // Создаём HTML элемент для маркера
+                            const markerElement = createClickMarkerElement();
+                            
+                            // Создаём маркер (БЕЗ указания source, чтобы он добавился в YMapDefaultFeaturesLayer) [citation:5][citation:6]
+                            const newMarker = new YMapMarker(
+                                { 
+                                    coordinates: [lon, lat]
+                                },
+                                markerElement
+                            );
+                            
+                            // Добавляем маркер на карту
+                            map.addChild(newMarker);
+                            currentClickMarker = newMarker;
+                            
+                            console.log('Marker added to map');
+                            
+                            // Анимация пульсации
+                            markerElement.classList.add('pulse');
+                            setTimeout(() => markerElement.classList.remove('pulse'), 400);
+                            
+                            // Показываем попап с кнопкой маршрута
+                            const screenCoords = map.geoToScreen([lon, lat]);
+                            if (screenCoords) {
+                                showRoutePopup(lat, lon, screenCoords[0], screenCoords[1]);
+                            } else {
+                                showRoutePopup(lat, lon);
+                            }
+                            
+                            // Добавляем обработчик клика на маркер (через onclick на элементе)
+                            markerElement.onclick = (e) => {
+                                e.stopPropagation();
+                                console.log('Marker clicked');
+                                const newScreenCoords = map.geoToScreen([lon, lat]);
+                                if (newScreenCoords) {
+                                    showRoutePopup(lat, lon, newScreenCoords[0], newScreenCoords[1]);
+                                } else {
+                                    showRoutePopup(lat, lon);
+                                }
+                            };
+                        }
+                    }
+                });
+                
+                map.addChild(mapListener);
+                
+                // ========== ПОИСК ==========
                 const searchInput = document.getElementById('search-input');
                 const resultsContainer = document.getElementById('search-results');
                 
-                // Функция поиска через HTTP Геокодер (более стабильный)
                 async function performSearch(query) {
                     if (!query || query.length < 2) {
                         resultsContainer.classList.remove('active');
@@ -221,36 +419,70 @@
                     }
                     
                     try {
-                        // Используем HTTP Геокодер API Яндекс.Карт
-                        const apiKey = '8fc5e4ba-8ce3-4230-8529-4898346c54ab'; // используем тот же ключ
+                        const apiKey = '8fc5e4ba-8ce3-4230-8529-4898346c54ab';
                         const url = `https://geocode-maps.yandex.ru/1.x/?apikey=${apiKey}&geocode=${encodeURIComponent(query)}&format=json&results=10`;
                         
                         const response = await fetch(url);
                         const data = await response.json();
-                        
                         const featureMembers = data.response.GeoObjectCollection.featureMember;
                         
                         if (featureMembers && featureMembers.length > 0) {
                             resultsContainer.innerHTML = '';
-                            
                             featureMembers.forEach(member => {
                                 const geoObject = member.GeoObject;
                                 const name = geoObject.name;
                                 const description = geoObject.description || '';
                                 const address = geoObject.metaDataProperty.GeocoderMetaData.text;
                                 const point = geoObject.Point.pos;
-                                const coordinates = point.split(' ').map(Number).reverse(); // [lat, lon]
+                                const coords = point.split(' ').map(Number);
                                 
                                 const item = document.createElement('div');
                                 item.className = 'result-item';
                                 item.innerHTML = `<strong>${name}</strong><br><small>${description || address}</small>`;
                                 item.onclick = () => {
-                                    // Перемещаем карту к выбранному месту
+                                    const lon = coords[0];
+                                    const lat = coords[1];
+                                    
                                     map.setLocation({
-                                        center: [coordinates[1], coordinates[0]], // [lon, lat]
+                                        center: [lon, lat],
                                         zoom: 16,
                                         duration: 300
                                     });
+                                    
+                                    removeClickMarker();
+                                    removePopup();
+                                    
+                                    const markerElement = createClickMarkerElement();
+                                    const newMarker = new YMapMarker(
+                                        { coordinates: [lon, lat] },
+                                        markerElement
+                                    );
+                                    
+                                    map.addChild(newMarker);
+                                    currentClickMarker = newMarker;
+                                    
+                                    markerElement.classList.add('pulse');
+                                    setTimeout(() => markerElement.classList.remove('pulse'), 400);
+                                    
+                                    setTimeout(() => {
+                                        const screenCoords = map.geoToScreen([lon, lat]);
+                                        if (screenCoords) {
+                                            showRoutePopup(lat, lon, screenCoords[0], screenCoords[1]);
+                                        } else {
+                                            showRoutePopup(lat, lon);
+                                        }
+                                    }, 100);
+                                    
+                                    markerElement.onclick = (e) => {
+                                        e.stopPropagation();
+                                        const newScreenCoords = map.geoToScreen([lon, lat]);
+                                        if (newScreenCoords) {
+                                            showRoutePopup(lat, lon, newScreenCoords[0], newScreenCoords[1]);
+                                        } else {
+                                            showRoutePopup(lat, lon);
+                                        }
+                                    };
+                                    
                                     resultsContainer.classList.remove('active');
                                     searchInput.value = name;
                                 };
@@ -263,19 +495,15 @@
                         }
                     } catch (error) {
                         console.error('Search error:', error);
-                        resultsContainer.innerHTML = '<div class="result-item">Search error. Please try again.</div>';
-                        resultsContainer.classList.add('active');
                     }
                 }
                 
-                // Обработчик ввода с debounce
                 let searchTimeout;
                 searchInput.addEventListener('input', (e) => {
                     clearTimeout(searchTimeout);
                     searchTimeout = setTimeout(() => performSearch(e.target.value), 300);
                 });
                 
-                // Поиск по Enter
                 searchInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
                         clearTimeout(searchTimeout);
@@ -283,10 +511,18 @@
                     }
                 });
                 
-                // Закрываем результаты при клике вне
                 document.addEventListener('click', (e) => {
                     if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
                         resultsContainer.classList.remove('active');
+                    }
+                    if (currentPopup && !currentPopup.contains(e.target)) {
+                        if (currentClickMarker) {
+                            const markerElement = currentClickMarker.getElement();
+                            if (markerElement && markerElement.contains(e.target)) {
+                                return;
+                            }
+                        }
+                        removePopup();
                     }
                 });
                 
@@ -329,10 +565,7 @@
                 const features = parkings.map((parking, index) => ({
                     type: 'Feature',
                     id: index,
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [parking.lon, parking.lat]
-                    },
+                    geometry: { type: 'Point', coordinates: [parking.lon, parking.lat] },
                     properties: {
                         name: parking.name,
                         free: parking.free,
@@ -367,21 +600,58 @@
                     
                     markerDiv.onmouseenter = () => { markerDiv.style.transform = 'scale(1.1)'; };
                     markerDiv.onmouseleave = () => { markerDiv.style.transform = 'scale(1)'; };
-                    markerDiv.onclick = () => {
+                    markerDiv.onclick = (e) => {
+                        e.stopPropagation();
                         const freePercent = Math.round((props.free / props.total) * 100);
-                        alert(`📍 ${props.name}\n\n🚗 Free: ${props.free} of ${props.total}\n📊 Free: ${freePercent}%\n🏠 ${props.address || 'No address'}`);
+                        const lon = feature.geometry.coordinates[0];
+                        const lat = feature.geometry.coordinates[1];
+                        
+                        removeClickMarker();
+                        removePopup();
+                        
+                        const clickMarkerElement = createClickMarkerElement();
+                        const newMarker = new YMapMarker(
+                            { coordinates: [lon, lat] },
+                            clickMarkerElement
+                        );
+                        
+                        map.addChild(newMarker);
+                        currentClickMarker = newMarker;
+                        
+                        clickMarkerElement.classList.add('pulse');
+                        setTimeout(() => clickMarkerElement.classList.remove('pulse'), 400);
+                        
+                        const screenCoords = map.geoToScreen([lon, lat]);
+                        if (screenCoords) {
+                            showRoutePopup(lat, lon, screenCoords[0], screenCoords[1]);
+                        } else {
+                            showRoutePopup(lat, lon);
+                        }
+                        
+                        clickMarkerElement.onclick = (clickEvent) => {
+                            clickEvent.stopPropagation();
+                            const newScreenCoords = map.geoToScreen([lon, lat]);
+                            if (newScreenCoords) {
+                                showRoutePopup(lat, lon, newScreenCoords[0], newScreenCoords[1]);
+                            } else {
+                                showRoutePopup(lat, lon);
+                            }
+                        };
+                        
+                        setTimeout(() => {
+                            alert(`📍 ${props.name}\n\n🚗 Free: ${props.free} of ${props.total}\n📊 Free: ${freePercent}%\n🏠 ${props.address || 'No address'}`);
+                        }, 100);
                     };
                     
                     return new YMapMarker(
-                        { coordinates: feature.geometry.coordinates, source: 'parking-source' },
+                        { coordinates: feature.geometry.coordinates },
                         markerDiv
                     );
                 };
                 
                 const createCluster = (coordinates, features) => {
                     const count = features.length;
-                    let totalFree = 0;
-                    let totalSpots = 0;
+                    let totalFree = 0, totalSpots = 0;
                     features.forEach(f => {
                         totalFree += f.properties.free;
                         totalSpots += f.properties.total;
@@ -420,12 +690,46 @@
                     
                     clusterDiv.onmouseenter = () => { clusterDiv.style.transform = 'scale(1.1)'; };
                     clusterDiv.onmouseleave = () => { clusterDiv.style.transform = 'scale(1)'; };
-                    clusterDiv.onclick = () => {
-                        alert(`📦 Cluster contains ${count} parking(s)\n🟢 Average ${avgFreePercent}% free`);
+                    clusterDiv.onclick = (e) => {
+                        e.stopPropagation();
+                        const lon = coordinates[0];
+                        const lat = coordinates[1];
+                        
+                        removeClickMarker();
+                        removePopup();
+                        
+                        const clickMarkerElement = createClickMarkerElement();
+                        const newMarker = new YMapMarker(
+                            { coordinates: [lon, lat] },
+                            clickMarkerElement
+                        );
+                        
+                        map.addChild(newMarker);
+                        currentClickMarker = newMarker;
+                        
+                        clickMarkerElement.classList.add('pulse');
+                        setTimeout(() => clickMarkerElement.classList.remove('pulse'), 400);
+                        
+                        const screenCoords = map.geoToScreen([lon, lat]);
+                        if (screenCoords) {
+                            showRoutePopup(lat, lon, screenCoords[0], screenCoords[1]);
+                        } else {
+                            showRoutePopup(lat, lon);
+                        }
+                        
+                        clickMarkerElement.onclick = (clickEvent) => {
+                            clickEvent.stopPropagation();
+                            const newScreenCoords = map.geoToScreen([lon, lat]);
+                            if (newScreenCoords) {
+                                showRoutePopup(lat, lon, newScreenCoords[0], newScreenCoords[1]);
+                            } else {
+                                showRoutePopup(lat, lon);
+                            }
+                        };
                     };
                     
                     return new YMapMarker(
-                        { coordinates: coordinates, source: 'parking-source' },
+                        { coordinates: coordinates },
                         clusterDiv
                     );
                 };
@@ -439,19 +743,15 @@
                 
                 map.addChild(clusterer);
                 
-                // Убираем сообщение о загрузке
-                if (loadingDiv) loadingDiv.remove();
-                
-                console.log(`✅ Map loaded! Added ${parkings.length} parking spots with search and clustering.`);
+                console.log(`✅ Map loaded! Click anywhere → red marker + route button.`);
                 
             } catch (error) {
                 console.error('Error:', error);
-                if (loadingDiv) loadingDiv.remove();
                 document.getElementById('map').innerHTML = `
                     <div style="display: flex; justify-content: center; align-items: center; height: 100%; font-family: Arial, sans-serif; background: #f5f5f5;">
                         <div style="text-align: center; padding: 30px; background: white; border-radius: 12px;">
                             <h3 style="color: #e74c3c;">❌ Error: ${error.message}</h3>
-                            <p style="margin-top: 10px;">Make sure you have internet connection and valid API key.</p>
+                            <p>Make sure you have a valid API key and localhost is allowed in key restrictions.</p>
                         </div>
                     </div>
                 `;
