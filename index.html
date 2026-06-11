@@ -338,8 +338,10 @@
                     popup.querySelector('.close-btn').onclick = () => removePopup();
                     
                     popup.querySelector('.nav-btn').onclick = () => {
-                        const url = `yandexnavi://build_route_on_map?lat_to=${lat}&lon_to=${lon}`;
-                        window.location.href = url;
+                        //const url = `yandexnavi://build_route_on_map?lat_to=${lat}&lon_to=${lon}`;
+                        //const mapsUrl = `yandexmaps://maps.yandex.ru/?rtext=~${destLat},${destLon}&rtt=auto`;
+                        const webUrl = `https://yandex.ru/maps/?rtext=~${lat},${lon}&rtt=auto&z=15`;
+                        window.location.href = webUrl;
                     };
                     
                     if (screenX && screenY) {
