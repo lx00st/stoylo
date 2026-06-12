@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Parking Map - Bottom Route Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Parking Map - Bottom Route Panel (Mobile Fixed)</title>
     <style>
         * {
             margin: 0;
@@ -18,6 +18,13 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            /* Для безопасных зон на iPhone */
+            padding: 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
 
         /* Карта занимает всё доступное пространство */
@@ -26,6 +33,8 @@
             position: relative;
             background: #cbdde6;
             min-height: 0;
+            width: 100%;
+            height: 100%;
         }
 
         #map {
@@ -36,11 +45,11 @@
         /* Поисковое поле внутри карты, сверху по центру */
         .custom-search {
             position: absolute;
-            top: 20px;
+            top: max(12px, env(safe-area-inset-top, 12px));
             left: 50%;
             transform: translateX(-50%);
             width: 400px;
-            max-width: 85%;
+            max-width: calc(100% - 32px);
             z-index: 1000;
             background: white;
             border-radius: 48px;
@@ -95,103 +104,112 @@
             background: #f0f7ff;
         }
 
-        /* НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МАРШРУТА (как панель управления картой) */
+        /* НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МАРШРУТА — исправлена для мобильных */
         .bottom-route-panel {
             position: absolute;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(12px);
-            border-radius: 20px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            bottom: max(12px, env(safe-area-inset-bottom, 12px));
+            left: max(12px, env(safe-area-inset-left, 12px));
+            right: max(12px, env(safe-area-inset-right, 12px));
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(16px);
+            border-radius: 24px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
             z-index: 1000;
             pointer-events: auto;
             transition: all 0.2s ease;
-            border: 1px solid rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            /* Дополнительная защита от обрезания */
+            overflow: hidden;
         }
 
         .panel-inner {
-            padding: 14px 20px;
+            padding: 14px 18px;
             display: flex;
             flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
             gap: 12px;
+            width: 100%;
         }
 
         .location-info {
             flex: 2;
-            min-width: 160px;
+            min-width: 140px;
+            word-break: break-word;
         }
 
         .location-name {
             font-weight: 700;
-            font-size: 1rem;
+            font-size: 0.95rem;
             color: #1e2f3a;
             display: flex;
             align-items: center;
-            gap: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
         }
 
         .location-name span {
             background: #e74c3c;
             color: white;
-            font-size: 12px;
+            font-size: 10px;
             padding: 2px 8px;
             border-radius: 30px;
+            white-space: nowrap;
         }
 
         .location-coords {
             font-family: monospace;
-            font-size: 11px;
+            font-size: 10px;
             color: #5f7f95;
             margin-top: 4px;
+            word-break: break-all;
         }
 
         .route-actions {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             align-items: center;
             flex-wrap: wrap;
+            flex-shrink: 0;
         }
 
         .route-btn {
             background: #ffcc00;
             color: #1f2f38;
             border: none;
-            padding: 10px 22px;
+            padding: 8px 18px;
             border-radius: 44px;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             transition: 0.2s;
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
             font-family: inherit;
             text-decoration: none;
+            white-space: nowrap;
         }
 
         .route-btn:hover {
             background: #e6b800;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 12px rgba(0,0,0,0.15);
+            transform: translateY(-1px);
         }
 
         .nav-btn-mobile {
             background: #2c3e50;
             color: white;
-            padding: 10px 20px;
+            padding: 8px 16px;
             border-radius: 44px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             transition: 0.2s;
+            white-space: nowrap;
         }
 
         .nav-btn-mobile:hover {
@@ -204,69 +222,73 @@
             width: 100%;
             padding: 8px 0;
             font-size: 13px;
+            font-weight: 500;
         }
 
-        /* Легенда и инструкция внутри карты */
+        /* Легенда и инструкция внутри карты — подняты выше, чтобы не перекрывать панель */
         .legend {
             position: absolute;
-            bottom: 100px;
-            right: 18px;
+            bottom: max(85px, env(safe-area-inset-bottom, 85px));
+            right: max(12px, env(safe-area-inset-right, 12px));
             background: rgba(255,255,255,0.94);
             backdrop-filter: blur(4px);
-            padding: 12px 18px;
-            border-radius: 24px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.2);
-            font-size: 11px;
+            padding: 10px 14px;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 10px;
             z-index: 1000;
             pointer-events: none;
             border: 1px solid #ffffff80;
+            max-width: 160px;
         }
 
         .legend h4 {
-            margin: 0 0 6px 0;
-            font-size: 12px;
+            margin: 0 0 5px 0;
+            font-size: 11px;
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
+            font-size: 9px;
         }
 
         .legend-color {
-            width: 18px;
-            height: 18px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
-            margin-right: 8px;
+            margin-right: 6px;
         }
 
         .legend-cluster {
-            width: 22px;
-            height: 22px;
+            width: 18px;
+            height: 18px;
             background: #3498db;
             border-radius: 50%;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-right: 8px;
+            margin-right: 6px;
             color: white;
-            font-size: 9px;
+            font-size: 8px;
             font-weight: bold;
         }
 
         .instruction {
             position: absolute;
-            bottom: 100px;
-            left: 18px;
-            background: rgba(0,0,0,0.65);
+            bottom: max(85px, env(safe-area-inset-bottom, 85px));
+            left: max(12px, env(safe-area-inset-left, 12px));
+            background: rgba(0,0,0,0.7);
             backdrop-filter: blur(6px);
             color: white;
-            padding: 6px 14px;
+            padding: 5px 12px;
             border-radius: 40px;
-            font-size: 11px;
+            font-size: 10px;
             z-index: 1000;
             pointer-events: none;
             font-weight: 500;
+            white-space: nowrap;
         }
 
         /* Маркер последнего клика */
@@ -300,30 +322,85 @@
             animation: pulse 0.35s ease-in-out;
         }
 
-        /* Адаптив для мобильных */
+        /* Адаптив для мобильных — улучшенная нижняя панель без обрезания */
         @media (max-width: 650px) {
             .bottom-route-panel {
-                left: 12px;
-                right: 12px;
-                bottom: 12px;
+                bottom: max(10px, env(safe-area-inset-bottom, 10px));
+                left: max(10px, env(safe-area-inset-left, 10px));
+                right: max(10px, env(safe-area-inset-right, 10px));
+                border-radius: 20px;
             }
+            
             .panel-inner {
+                padding: 12px 14px;
                 flex-direction: column;
                 align-items: stretch;
-                padding: 12px 16px;
+                gap: 10px;
             }
+            
+            .location-info {
+                text-align: center;
+            }
+            
+            .location-name {
+                justify-content: center;
+                font-size: 0.9rem;
+            }
+            
             .route-actions {
                 justify-content: center;
+                gap: 12px;
             }
+            
+            .route-btn, .nav-btn-mobile {
+                padding: 8px 16px;
+                font-size: 12px;
+                white-space: nowrap;
+            }
+            
             .legend {
-                bottom: 110px;
+                bottom: max(95px, env(safe-area-inset-bottom, 95px));
                 right: 10px;
                 padding: 8px 12px;
+                max-width: 140px;
+            }
+            
+            .instruction {
+                bottom: max(95px, env(safe-area-inset-bottom, 95px));
+                left: 10px;
+                font-size: 9px;
+                white-space: nowrap;
+            }
+            
+            .custom-search {
+                top: max(10px, env(safe-area-inset-top, 10px));
+                width: calc(100% - 24px);
+            }
+            
+            .custom-search input {
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+        }
+        
+        /* Очень маленькие экраны (iPhone SE) */
+        @media (max-width: 380px) {
+            .route-btn, .nav-btn-mobile {
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+            .panel-inner {
+                padding: 10px 12px;
+            }
+            .location-name {
+                font-size: 0.85rem;
+            }
+            .legend {
+                display: none; /* скрываем легенду на совсем мелких, чтобы не мешала */
             }
             .instruction {
-                bottom: 110px;
-                left: 10px;
-                font-size: 10px;
+                bottom: max(100px, env(safe-area-inset-bottom, 100px));
+                font-size: 8px;
             }
         }
     </style>
@@ -339,22 +416,22 @@
         <div class="results" id="search-results"></div>
     </div>
     
-    <!-- НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МАРШРУТА (как контролы карты) -->
+    <!-- НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МАРШРУТА (исправлена для мобильных) -->
     <div class="bottom-route-panel" id="bottomRoutePanel">
         <div class="panel-inner" id="panelInner">
-            <div class="empty-panel-message">📍 Click on the map or parking to see route options</div>
+            <div class="empty-panel-message">📍 Tap map or parking → route here</div>
         </div>
     </div>
     
     <div class="legend">
         <h4>🚗 Parking</h4>
-        <div class="legend-item"><div class="legend-color" style="background:#2ecc71;"></div><span>Many free (>40%)</span></div>
-        <div class="legend-item"><div class="legend-color" style="background:#f39c12;"></div><span>Medium (15-40%)</span></div>
-        <div class="legend-item"><div class="legend-color" style="background:#e74c3c;"></div><span>Few free (<15%)</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#2ecc71;"></div><span>Free >40%</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#f39c12;"></div><span>15-40%</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#e74c3c;"></div><span>&lt;15%</span></div>
         <div class="legend-item"><div class="legend-cluster">12</div><span>Cluster</span></div>
-        <div class="legend-item"><div style="width:18px;height:18px;background:#e74c3c;border-radius:50%;margin-right:8px;border:2px solid white;"></div><span>Click marker</span></div>
+        <div class="legend-item"><div style="width:14px;height:14px;background:#e74c3c;border-radius:50%;margin-right:6px;border:1px solid white;"></div><span>Marker</span></div>
     </div>
-    <!-- <div class="instruction">💡 Tap marker / map → route panel below</div> -->
+    <!-- <div class="instruction">💡 Tap marker / map → route panel</div> -->
 </div>
 
 <script src="https://api-maps.yandex.ru/v3/?apikey=bb36a041-64be-4fd6-b306-a246fe863173&lang=en_US"></script>
@@ -446,21 +523,19 @@
                 const panelInner = document.getElementById('panelInner');
                 if (!panelInner) return;
                 
-                // Формируем ссылки
                 const mapsUrl = `https://yandex.ru/maps/?rtext=~${lat},${lon}&rtt=auto`;
                 const navUrl = `yandexnavi://build_route_on_map?lat_to=${lat}&lon_to=${lon}`;
                 
-                // Детали парковки (если есть)
                 let parkingDetailsHtml = '';
                 if (details) {
-                    parkingDetailsHtml = `<div style="font-size: 12px; color: #2c6e9e; margin-top: 3px;">${escapeHtml(details)}</div>`;
+                    parkingDetailsHtml = `<div style="font-size: 11px; color: #2c6e9e; margin-top: 4px;">${escapeHtml(details)}</div>`;
                 }
                 
                 panelInner.innerHTML = `
                     <div class="location-info">
                         <div class="location-name">
                             📍 ${escapeHtml(title)} 
-                            <span>route ready</span>
+                            <span>route</span>
                         </div>
                         <div class="location-coords">${lat.toFixed(5)}°, ${lon.toFixed(5)}°</div>
                         ${parkingDetailsHtml}
@@ -479,7 +554,7 @@
             function resetBottomPanelToEmpty() {
                 const panelInner = document.getElementById('panelInner');
                 if (panelInner) {
-                    panelInner.innerHTML = `<div class="empty-panel-message">📍 Click on the map or parking to see route options</div>`;
+                    panelInner.innerHTML = `<div class="empty-panel-message">📍 Tap map or parking → route panel</div>`;
                 }
             }
             
@@ -527,7 +602,7 @@
                     if (coordinates && coordinates.length === 2) {
                         const lon = coordinates[0];
                         const lat = coordinates[1];
-                        setSelectedPoint(lat, lon, "Point on map", "Free click — route available");
+                        setSelectedPoint(lat, lon, "Point on map", "Tap route button to navigate");
                     }
                 }
             });
@@ -553,7 +628,7 @@
                 div.onclick = (e) => {
                     e.stopPropagation();
                     const freePercent = Math.round((props.free / props.total) * 100);
-                    const details = `🚗 Free: ${props.free} of ${props.total} (${freePercent}% free) · ${props.address || 'No address'}`;
+                    const details = `🚗 Free: ${props.free} of ${props.total} (${freePercent}% free) · ${props.address || ''}`;
                     setSelectedPoint(props.lat, props.lon, props.name, details);
                 };
                 return new YMapMarker({ coordinates: feature.geometry.coordinates }, div);
@@ -586,7 +661,7 @@
                     e.stopPropagation();
                     const clusterCenterLon = coordinates[0];
                     const clusterCenterLat = coordinates[1];
-                    setSelectedPoint(clusterCenterLat, clusterCenterLon, `Cluster (${count} parkings)`, `Average free: ${avgPercent}% · ${count} parking spots grouped`);
+                    setSelectedPoint(clusterCenterLat, clusterCenterLon, `Cluster (${count} parkings)`, `Average free: ${avgPercent}% · ${count} spots`);
                     map.setLocation({ center: [clusterCenterLon, clusterCenterLat], zoom: 15, duration: 400 });
                 };
                 return new YMapMarker({ coordinates: coordinates }, clusterDiv);
@@ -663,13 +738,11 @@
                 }
             });
             
-            // Начальное состояние панели (пустое)
             resetBottomPanelToEmpty();
-            
-            console.log("✅ Map ready: bottom route panel as map controls");
+            console.log("✅ Mobile optimized: bottom panel uses safe-area-inset");
         } catch (err) {
             console.error(err);
-            document.getElementById('map').innerHTML = `<div style="padding:40px;background:white;margin:20px;border-radius:20px;">❌ Error: ${err.message}<br>Check API key / network</div>`;
+            document.getElementById('map').innerHTML = `<div style="padding:40px;background:white;margin:20px;border-radius:20px;">❌ Error: ${err.message}<br>Check API key</div>`;
         }
     })();
 </script>
