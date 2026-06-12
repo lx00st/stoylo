@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Parking Map - Top Panel (Just Yandex Maps Button)</title>
+    <title>Parking Map - Search with Nearby Free Spots</title>
     <style>
         * {
             margin: 0;
@@ -26,7 +26,6 @@
             bottom: 0;
         }
 
-        /* Карта занимает всё доступное пространство */
         .map-container {
             flex: 1;
             position: relative;
@@ -41,7 +40,7 @@
             width: 100%;
         }
 
-        /* === ВЕРХНЯЯ КОМБИНИРОВАННАЯ ПАНЕЛЬ: поиск + кнопка маршрута === */
+        /* Верхняя панель: поиск + кнопка маршрута */
         .top-combined-panel {
             position: absolute;
             top: max(12px, env(safe-area-inset-top, 12px));
@@ -51,10 +50,9 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            pointer-events: none; /* клики сквозь обертку, но дочерние элементы с auto */
+            pointer-events: none;
         }
 
-        /* Поисковый блок */
         .custom-search {
             width: 100%;
             background: white;
@@ -91,7 +89,7 @@
             background: white;
             border-radius: 20px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            max-height: 320px;
+            max-height: 380px;
             overflow-y: auto;
             z-index: 1001;
             margin-top: 8px;
@@ -112,14 +110,59 @@
             background: #f0f7ff;
         }
 
+        .result-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1a2a3a;
+        }
+
+        .result-address {
+            font-size: 11px;
+            color: #6c8a9e;
+            margin-top: 2px;
+        }
+
+        .result-parking-stats {
+            font-size: 11px;
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .free-spots-badge {
+            background: #2ecc71;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .free-spots-badge.low {
+            background: #e74c3c;
+        }
+
+        .free-spots-badge.medium {
+            background: #f39c12;
+        }
+
+        .nearby-info {
+            color: #2c6e9e;
+            font-size: 10px;
+        }
+
         /* Панель маршрута (только кнопка) */
         .route-panel-simple {
             background: rgba(255, 255, 255, 0.96);
             backdrop-filter: blur(16px);
             border-radius: 60px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
             pointer-events: auto;
-            transition: all 0.2s ease;
             border: 1px solid rgba(255, 255, 255, 0.6);
             width: auto;
             align-self: center;
@@ -158,7 +201,7 @@
             transform: translateY(-1px);
         }
 
-        /* Легенда и инструкция на карте */
+        /* Легенда */
         .legend {
             position: absolute;
             bottom: max(20px, env(safe-area-inset-bottom, 20px));
@@ -208,7 +251,7 @@
             font-weight: bold;
         }
 
-        /* Маркер последнего клика */
+        /* Маркер клика */
         .click-marker {
             width: 42px;
             height: 42px;
@@ -239,7 +282,6 @@
             animation: pulse 0.35s ease-in-out;
         }
 
-        /* Адаптив для мобильных */
         @media (max-width: 650px) {
             .top-combined-panel {
                 top: max(10px, env(safe-area-inset-top, 10px));
@@ -247,21 +289,17 @@
                 right: max(10px, env(safe-area-inset-right, 10px));
                 gap: 8px;
             }
-            
             .custom-search input {
                 padding: 12px 16px;
                 font-size: 14px;
             }
-            
             .simple-panel-inner {
                 padding: 6px 16px;
             }
-            
             .route-btn {
                 padding: 8px 20px;
                 font-size: 14px;
             }
-            
             .legend {
                 bottom: max(15px, env(safe-area-inset-bottom, 15px));
                 right: 10px;
@@ -270,7 +308,6 @@
             }
         }
         
-        /* Очень маленькие экраны */
         @media (max-width: 380px) {
             .route-btn {
                 padding: 6px 16px;
@@ -287,18 +324,14 @@
 <div class="map-container">
     <div id="map"></div>
     
-    <!-- ВЕРХНЯЯ ПАНЕЛЬ: поиск + кнопка маршрута (только Yandex Maps) -->
     <div class="top-combined-panel">
-        <!-- Поиск -->
         <div class="custom-search">
             <input type="text" id="search-input" placeholder="🔍 Search for parking or address...">
             <div class="results" id="search-results"></div>
         </div>
         
-        <!-- Простая панель маршрута: только кнопка Yandex Maps -->
         <div class="route-panel-simple" id="routePanelSimple">
-            <div class="simple-panel-inner" id="simplePanelInner">
-                <!-- Кнопка будет обновляться динамически, но всегда только Yandex Maps ссылка -->
+            <div class="simple-panel-inner">
                 <a href="#" id="dynamicRouteBtn" class="route-btn" target="_blank" rel="noopener noreferrer">
                     🚗 Yandex Maps
                 </a>
@@ -312,7 +345,6 @@
         <div class="legend-item"><div class="legend-color" style="background:#f39c12;"></div><span>15-40%</span></div>
         <div class="legend-item"><div class="legend-color" style="background:#e74c3c;"></div><span>&lt;15%</span></div>
         <div class="legend-item"><div class="legend-cluster">12</div><span>Cluster</span></div>
-        <div class="legend-item"><div style="width:14px;height:14px;background:#e74c3c;border-radius:50%;margin-right:6px;border:1px solid white;"></div><span>Marker</span></div>
     </div>
 </div>
 
@@ -361,6 +393,31 @@
                 { lat: 59.979200, lon: 30.265600, name: "Ozerki", free: 25, total: 60, address: "Vyborgskoye Sh., 23" }
             ];
             
+            // Функция для подсчета свободных мест в радиусе (метров)
+            function countFreeSpotsInRadius(lat, lon, radiusMeters = 300) {
+                let totalFree = 0;
+                const R = 6371000; // радиус Земли в метрах
+                
+                parkings.forEach(p => {
+                    // вычисление расстояния по формуле гаверсинуса
+                    const φ1 = lat * Math.PI / 180;
+                    const φ2 = p.lat * Math.PI / 180;
+                    const Δφ = (p.lat - lat) * Math.PI / 180;
+                    const Δλ = (p.lon - lon) * Math.PI / 180;
+                    
+                    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                              Math.cos(φ1) * Math.cos(φ2) *
+                              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    const distance = R * c;
+                    
+                    if (distance <= radiusMeters) {
+                        totalFree += p.free;
+                    }
+                });
+                return totalFree;
+            }
+            
             function getColorByOccupancy(free, total) {
                 if (total === 0) return '#95a5a6';
                 let percent = (free / total) * 100;
@@ -385,8 +442,6 @@
             
             // ========== МАРКЕР ПОСЛЕДНЕГО КЛИКА ==========
             let currentClickMarker = null;
-            let currentSelectedLat = null;
-            let currentSelectedLon = null;
             
             function removeClickMarker() {
                 if (currentClickMarker) {
@@ -402,22 +457,16 @@
                 return div;
             }
             
-            // Обновление только кнопки Yandex Maps (без лишней информации)
             function updateRouteButton(lat, lon) {
                 const routeBtn = document.getElementById('dynamicRouteBtn');
                 if (routeBtn && lat && lon) {
                     const mapsUrl = `https://yandex.ru/maps/?rtext=~${lat},${lon}&rtt=auto`;
                     routeBtn.href = mapsUrl;
-                    // Добавляем небольшой визуальный фидбек, что кнопка активна
-                    routeBtn.style.opacity = '1';
-                    routeBtn.style.transform = 'scale(1)';
                 } else if (routeBtn) {
-                    // Если нет координат, ссылка ведет на пустую карту или на центр по умолчанию
                     routeBtn.href = `https://yandex.ru/maps/`;
                 }
             }
             
-            // Установка выбранной точки и обновление кнопки
             function setSelectedPoint(lat, lon, name, extraDetails = "") {
                 removeClickMarker();
                 
@@ -425,13 +474,10 @@
                 const newMarker = new YMapMarker({ coordinates: [lon, lat] }, markerEl);
                 map.addChild(newMarker);
                 currentClickMarker = newMarker;
-                currentSelectedLat = lat;
-                currentSelectedLon = lon;
                 
                 markerEl.classList.add('pulse');
                 setTimeout(() => markerEl.classList.remove('pulse'), 400);
                 
-                // Обновляем кнопку маршрута
                 updateRouteButton(lat, lon);
                 
                 markerEl.onclick = (e) => {
@@ -455,7 +501,7 @@
             });
             map.addChild(mapListener);
             
-            // ========== КЛАСТЕРИЗАЦИЯ ПАРКОВОК ==========
+            // ========== КЛАСТЕРИЗАЦИЯ ==========
             const createMarker = (feature) => {
                 const props = feature.properties;
                 const color = getColorByOccupancy(props.free, props.total);
@@ -520,9 +566,19 @@
             });
             map.addChild(clusterer);
             
-            // ========== ПОИСК (геокодер) ==========
+            // ========== ПОИСК С ПОДСЧЕТОМ СВОБОДНЫХ МЕСТ В РАДИУСЕ ==========
             const searchInput = document.getElementById('search-input');
             const resultsContainer = document.getElementById('search-results');
+            
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/[&<>]/g, function(m) {
+                    if (m === '&') return '&amp;';
+                    if (m === '<') return '&lt;';
+                    if (m === '>') return '&gt;';
+                    return m;
+                });
+            }
             
             async function performSearch(query) {
                 if (!query || query.length < 2) {
@@ -535,17 +591,49 @@
                     const resp = await fetch(url);
                     const data = await resp.json();
                     const members = data.response.GeoObjectCollection.featureMember;
+                    
                     if (members && members.length) {
                         resultsContainer.innerHTML = '';
-                        members.forEach(member => {
+                        
+                        // Для каждого результата считаем свободные места в радиусе 300м
+                        for (const member of members) {
                             const geo = member.GeoObject;
                             const name = geo.name;
                             const address = geo.metaDataProperty.GeocoderMetaData.text;
                             const point = geo.Point.pos.split(' ').map(Number);
                             const lon = point[0], lat = point[1];
+                            
+                            // Подсчет свободных мест в радиусе 300 метров
+                            const freeSpots = countFreeSpotsInRadius(lat, lon, 300);
+                            
                             const item = document.createElement('div');
                             item.className = 'result-item';
-                            item.innerHTML = `<strong>${escapeHtml(name)}</strong><br><small>${escapeHtml(address.substring(0, 70))}</small>`;
+                            
+                            // Определяем класс для бейджа в зависимости от количества мест
+                            let badgeClass = 'free-spots-badge';
+                            let badgeEmoji = '🅿️';
+                            if (freeSpots === 0) {
+                                badgeClass += ' low';
+                                badgeEmoji = '⚠️';
+                            } else if (freeSpots < 10) {
+                                badgeClass += ' medium';
+                            }
+                            
+                            const parkingInfoHtml = `
+                                <div class="result-parking-stats">
+                                    <span class="${badgeClass}">
+                                        ${badgeEmoji} ${freeSpots} free spots
+                                    </span>
+                                    <span class="nearby-info">📍 within 300m</span>
+                                </div>
+                            `;
+                            
+                            item.innerHTML = `
+                                <div class="result-title">${escapeHtml(name)}</div>
+                                <div class="result-address">${escapeHtml(address.substring(0, 80))}</div>
+                                ${parkingInfoHtml}
+                            `;
+                            
                             item.onclick = () => {
                                 map.setLocation({ center: [lon, lat], zoom: 16, duration: 400 });
                                 setSelectedPoint(lat, lon, name, "");
@@ -553,7 +641,7 @@
                                 searchInput.value = name;
                             };
                             resultsContainer.appendChild(item);
-                        });
+                        }
                         resultsContainer.classList.add('active');
                     } else {
                         resultsContainer.innerHTML = '<div class="result-item">No results found</div>';
@@ -561,23 +649,15 @@
                     }
                 } catch(e) {
                     console.warn(e);
+                    resultsContainer.innerHTML = '<div class="result-item">Search error</div>';
+                    resultsContainer.classList.add('active');
                 }
-            }
-            
-            function escapeHtml(str) {
-                if (!str) return '';
-                return str.replace(/[&<>]/g, function(m) {
-                    if (m === '&') return '&amp;';
-                    if (m === '<') return '&lt;';
-                    if (m === '>') return '&gt;';
-                    return m;
-                });
             }
             
             let debounce;
             searchInput.addEventListener('input', (e) => {
                 clearTimeout(debounce);
-                debounce = setTimeout(() => performSearch(e.target.value), 330);
+                debounce = setTimeout(() => performSearch(e.target.value), 400);
             });
             
             searchInput.addEventListener('keypress', (e) => {
@@ -593,13 +673,12 @@
                 }
             });
             
-            // Инициализация: кнопка по умолчанию (без координат ведет на карту)
             const defaultBtn = document.getElementById('dynamicRouteBtn');
             if (defaultBtn) {
                 defaultBtn.href = 'https://yandex.ru/maps/';
             }
             
-            console.log("✅ Top panel with only Yandex Maps button ready. Safe area respected.");
+            console.log("✅ Search with nearby free spots (300m radius) ready!");
         } catch (err) {
             console.error(err);
             document.getElementById('map').innerHTML = `<div style="padding:40px;background:white;margin:20px;border-radius:20px;">❌ Error: ${err.message}<br>Check API key</div>`;
