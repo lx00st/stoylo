@@ -2,44 +2,69 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parking Map with Click Marker - Fixed</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Parking Map - Bottom Route Panel</title>
     <style>
-        html, body, #map {
-            height: 100%;
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
-        
-        /* Кастомное поисковое поле */
+
+        body {
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+            background: #e9f0f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Карта занимает всё доступное пространство */
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: #cbdde6;
+            min-height: 0;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Поисковое поле внутри карты, сверху по центру */
         .custom-search {
             position: absolute;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
             width: 400px;
-            max-width: 90%;
+            max-width: 85%;
             z-index: 1000;
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border-radius: 48px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
             font-family: Arial, sans-serif;
         }
-        
+
         .custom-search input {
             width: 100%;
-            padding: 12px 16px;
+            padding: 14px 20px;
             font-size: 16px;
             border: 1px solid #ddd;
-            border-radius: 8px;
+            border-radius: 48px;
             outline: none;
             box-sizing: border-box;
+            background: white;
+            transition: all 0.2s;
         }
-        
+
         .custom-search input:focus {
             border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52,152,219,0.2);
         }
-        
+
         .custom-search .results {
             display: none;
             position: absolute;
@@ -47,724 +72,606 @@
             left: 0;
             right: 0;
             background: white;
-            border-radius: 0 0 8px 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            max-height: 300px;
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            max-height: 320px;
             overflow-y: auto;
             z-index: 1001;
+            margin-top: 8px;
         }
-        
+
         .custom-search .results.active {
             display: block;
         }
-        
+
         .custom-search .result-item {
-            padding: 10px 16px;
+            padding: 12px 18px;
             cursor: pointer;
             border-bottom: 1px solid #eee;
+            transition: background 0.15s;
         }
-        
+
         .custom-search .result-item:hover {
-            background: #f5f5f5;
+            background: #f0f7ff;
         }
-        
-        /* Стили для попапа с кнопкой маршрута */
-        .route-popup {
-            position: absolute;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            padding: 16px 20px;
-            font-family: Arial, sans-serif;
-            z-index: 1001;
-            min-width: 250px;
-            text-align: center;
-            pointer-events: auto;
-            border: 1px solid #e0e0e0;
-        }
-        
-        .route-popup .close-btn {
-            position: absolute;
-            top: 8px;
-            right: 12px;
-            cursor: pointer;
-            font-size: 18px;
-            color: #999;
-        }
-        
-        .route-popup .close-btn:hover {
-            color: #333;
-        }
-        
-        .route-popup h4 {
-            margin: 0 0 8px 0;
-            color: #333;
-        }
-        
-        .route-popup .coords {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 12px;
-            word-break: break-all;
-        }
-        
-        .route-popup .nav-btn {
-            background: #ffcc00;
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            transition: background 0.2s;
-        }
-        
-        .route-popup .nav-btn:hover {
-            background: #e6b800;
-        }
-        
-        .legend {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            z-index: 1000;
-            pointer-events: none;
-        }
-        
-        .legend h4 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        
-        .legend-cluster {
-            width: 24px;
-            height: 24px;
-            background: #3498db;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-            text-align: center;
-            line-height: 24px;
-            color: white;
-            font-size: 10px;
-            font-weight: bold;
-        }
-        
-        .instruction {
+
+        /* НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МАРШРУТА (как панель управления картой) */
+        .bottom-route-panel {
             position: absolute;
             bottom: 20px;
             left: 20px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 8px 15px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
             border-radius: 20px;
-            font-family: Arial, sans-serif;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            pointer-events: auto;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .panel-inner {
+            padding: 14px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .location-info {
+            flex: 2;
+            min-width: 160px;
+        }
+
+        .location-name {
+            font-weight: 700;
+            font-size: 1rem;
+            color: #1e2f3a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .location-name span {
+            background: #e74c3c;
+            color: white;
             font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 30px;
+        }
+
+        .location-coords {
+            font-family: monospace;
+            font-size: 11px;
+            color: #5f7f95;
+            margin-top: 4px;
+        }
+
+        .route-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .route-btn {
+            background: #ffcc00;
+            color: #1f2f38;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 44px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            font-family: inherit;
+            text-decoration: none;
+        }
+
+        .route-btn:hover {
+            background: #e6b800;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(0,0,0,0.15);
+        }
+
+        .nav-btn-mobile {
+            background: #2c3e50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 44px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.2s;
+        }
+
+        .nav-btn-mobile:hover {
+            background: #1a2a3a;
+        }
+
+        .empty-panel-message {
+            color: #8ba0ae;
+            text-align: center;
+            width: 100%;
+            padding: 8px 0;
+            font-size: 13px;
+        }
+
+        /* Легенда и инструкция внутри карты */
+        .legend {
+            position: absolute;
+            bottom: 100px;
+            right: 18px;
+            background: rgba(255,255,255,0.94);
+            backdrop-filter: blur(4px);
+            padding: 12px 18px;
+            border-radius: 24px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+            font-size: 11px;
             z-index: 1000;
             pointer-events: none;
+            border: 1px solid #ffffff80;
         }
-        
-        /* Стили для маркера последнего клика - ПРОСТЫЕ, без псевдоэлементов */
+
+        .legend h4 {
+            margin: 0 0 6px 0;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .legend-cluster {
+            width: 22px;
+            height: 22px;
+            background: #3498db;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            color: white;
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        .instruction {
+            position: absolute;
+            bottom: 100px;
+            left: 18px;
+            background: rgba(0,0,0,0.65);
+            backdrop-filter: blur(6px);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 11px;
+            z-index: 1000;
+            pointer-events: none;
+            font-weight: 500;
+        }
+
+        /* Маркер последнего клика */
         .click-marker {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             background-color: #e74c3c;
             border: 3px solid white;
             border-radius: 50%;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.3);
             cursor: pointer;
             transition: transform 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 22px;
             color: white;
             font-weight: bold;
         }
-        
+
         .click-marker:hover {
-            transform: scale(1.1);
+            transform: scale(1.12);
         }
-        
+
         @keyframes pulse {
             0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.3); opacity: 0.8; }
+            50% { transform: scale(1.28); opacity: 0.9; }
             100% { transform: scale(1); opacity: 1; }
         }
-        
         .click-marker.pulse {
-            animation: pulse 0.4s ease-in-out;
+            animation: pulse 0.35s ease-in-out;
+        }
+
+        /* Адаптив для мобильных */
+        @media (max-width: 650px) {
+            .bottom-route-panel {
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+            }
+            .panel-inner {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 12px 16px;
+            }
+            .route-actions {
+                justify-content: center;
+            }
+            .legend {
+                bottom: 110px;
+                right: 10px;
+                padding: 8px 12px;
+            }
+            .instruction {
+                bottom: 110px;
+                left: 10px;
+                font-size: 10px;
+            }
         }
     </style>
 </head>
 <body>
+
+<div class="map-container">
     <div id="map"></div>
     
+    <!-- Поиск внутри карты (сверху) -->
     <div class="custom-search">
         <input type="text" id="search-input" placeholder="🔍 Search for parking or address...">
         <div class="results" id="search-results"></div>
     </div>
     
-    <div class="legend">
-        <h4>🚗 Parking Occupancy</h4>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #2ecc71;"></div>
-            <span>Many spots free (>40%)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #f39c12;"></div>
-            <span>Few spots free (15-40%)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #e74c3c;"></div>
-            <span>Almost full (&lt;15%)</span>
-        </div>
-        <div class="legend-item" style="margin-top: 5px;">
-            <div class="legend-cluster">12</div>
-            <span>Cluster (group of parkings)</span>
-        </div>
-        <div class="legend-item" style="margin-top: 5px;">
-            <div style="width:20px;height:20px;background:#e74c3c;border-radius:50%;margin-right:8px;border:1px solid white;box-shadow:0 1px 2px rgba(0,0,0,0.2);"></div>
-            <span>📍 Last click marker</span>
+    <!-- НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МАРШРУТА (как контролы карты) -->
+    <div class="bottom-route-panel" id="bottomRoutePanel">
+        <div class="panel-inner" id="panelInner">
+            <div class="empty-panel-message">📍 Click on the map or parking to see route options</div>
         </div>
     </div>
     
-    <div class="instruction">
-        💡 Click anywhere on the map → red marker + route button
+    <div class="legend">
+        <h4>🚗 Parking</h4>
+        <div class="legend-item"><div class="legend-color" style="background:#2ecc71;"></div><span>Many free (>40%)</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#f39c12;"></div><span>Medium (15-40%)</span></div>
+        <div class="legend-item"><div class="legend-color" style="background:#e74c3c;"></div><span>Few free (<15%)</span></div>
+        <div class="legend-item"><div class="legend-cluster">12</div><span>Cluster</span></div>
+        <div class="legend-item"><div style="width:18px;height:18px;background:#e74c3c;border-radius:50%;margin-right:8px;border:2px solid white;"></div><span>Click marker</span></div>
     </div>
+    <!-- <div class="instruction">💡 Tap marker / map → route panel below</div> -->
+</div>
 
-    <script src="https://api-maps.yandex.ru/v3/?apikey=bb36a041-64be-4fd6-b306-a246fe863173&lang=en_US"></script>
-    <script>
-        async function initMap() {
-            try {
-                if (typeof ymaps3 === 'undefined') {
-                    throw new Error('Yandex Maps API failed to load');
+<script src="https://api-maps.yandex.ru/v3/?apikey=bb36a041-64be-4fd6-b306-a246fe863173&lang=en_US"></script>
+
+<script>
+    (async function initMapApp() {
+        try {
+            if (typeof ymaps3 === 'undefined') throw new Error('Yandex Maps API failed to load');
+            await ymaps3.ready;
+            
+            const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker, YMapListener } = ymaps3;
+            const { YMapClusterer, clusterByGrid } = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
+            
+            const map = new YMap(document.getElementById('map'), {
+                location: { center: [30.315868, 59.938732], zoom: 13 }
+            });
+            map.addChild(new YMapDefaultSchemeLayer());
+            map.addChild(new YMapDefaultFeaturesLayer());
+            
+            // ========== ДАННЫЕ ПАРКОВОК ==========
+            const parkings = [
+                { lat: 59.938732, lon: 30.315868, name: "Palace Square", free: 23, total: 50, address: "Palace Sq., 1" },
+                { lat: 59.935101, lon: 30.324104, name: "Nevsky Prospekt 30", free: 5, total: 30, address: "Nevsky Ave., 30" },
+                { lat: 59.934280, lon: 30.306633, name: "St. Isaac's Cathedral", free: 12, total: 40, address: "Isaac's Sq., 4" },
+                { lat: 59.932800, lon: 30.295700, name: "Mariinsky Theatre", free: 8, total: 25, address: "Theatre Sq., 1" },
+                { lat: 59.944700, lon: 30.323700, name: "Summer Garden", free: 18, total: 35, address: "Kutuzov Emb., 2" },
+                { lat: 59.956800, lon: 30.308300, name: "Petrograd Embankment", free: 42, total: 80, address: "Petrograd Emb., 20" },
+                { lat: 59.961200, lon: 30.300500, name: "Kronverksky Ave", free: 3, total: 15, address: "Kronverksky Ave., 49" },
+                { lat: 59.959500, lon: 30.319000, name: "Kamenny Island Ave", free: 28, total: 60, address: "Kamenny Island Ave., 35" },
+                { lat: 59.942500, lon: 30.282200, name: "Vasileostrovsky Market", free: 14, total: 45, address: "Bolshoy Ave. V.O., 16" },
+                { lat: 59.940300, lon: 30.275800, name: "Makarov Embankment", free: 7, total: 25, address: "Makarov Emb., 2" },
+                { lat: 59.945100, lon: 30.270600, name: "Sea Port", free: 55, total: 120, address: "Maritime Glory Sq., 1" },
+                { lat: 59.922100, lon: 30.319400, name: "Moscow Station", free: 19, total: 55, address: "Uprising Sq., 2" },
+                { lat: 59.900800, lon: 30.329700, name: "Victory Park", free: 32, total: 70, address: "Moskovsky Ave., 188" },
+                { lat: 59.895500, lon: 30.335600, name: "Elektrosila", free: 11, total: 35, address: "Moskovsky Ave., 139" },
+                { lat: 59.928500, lon: 30.342900, name: "Tauride Garden", free: 21, total: 40, address: "Tchaikovsky St., 50" },
+                { lat: 59.924400, lon: 30.351200, name: "Smolny Cathedral", free: 16, total: 45, address: "Proletarian Dictatorship Sq., 1" },
+                { lat: 59.914500, lon: 30.295800, name: "Institute of Technology", free: 4, total: 20, address: "Moskovsky Ave., 26" },
+                { lat: 59.927800, lon: 30.262200, name: "Mining University", free: 27, total: 55, address: "21st Line V.O., 2" },
+                { lat: 59.950300, lon: 30.241700, name: "Primorsky Victory Park", free: 45, total: 100, address: "Krestovsky Ave., 23" },
+                { lat: 59.953200, lon: 30.220600, name: "Gazprom Arena Stadium", free: 380, total: 800, address: "Football Alley, 1" },
+                { lat: 59.969500, lon: 30.344500, name: "Piskaryovsky Ave", free: 38, total: 90, address: "Piskaryovsky Ave., 25" },
+                { lat: 59.886600, lon: 30.319700, name: "Kupchino", free: 52, total: 110, address: "Malaya Balkanskaya St., 23" },
+                { lat: 59.864100, lon: 30.265300, name: "Zvezdnaya", free: 31, total: 75, address: "Dunaisky Ave., 48" },
+                { lat: 59.979200, lon: 30.265600, name: "Ozerki", free: 25, total: 60, address: "Vyborgskoye Sh., 23" }
+            ];
+            
+            function getColorByOccupancy(free, total) {
+                if (total === 0) return '#95a5a6';
+                let percent = (free / total) * 100;
+                if (percent > 40) return '#2ecc71';
+                if (percent > 15) return '#f39c12';
+                return '#e74c3c';
+            }
+            
+            const features = parkings.map((p, idx) => ({
+                type: 'Feature',
+                id: idx,
+                geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+                properties: {
+                    name: p.name,
+                    free: p.free,
+                    total: p.total,
+                    address: p.address,
+                    lat: p.lat,
+                    lon: p.lon
+                }
+            }));
+            
+            // ========== МАРКЕР ПОСЛЕДНЕГО КЛИКА ==========
+            let currentClickMarker = null;
+            
+            function removeClickMarker() {
+                if (currentClickMarker) {
+                    map.removeChild(currentClickMarker);
+                    currentClickMarker = null;
+                }
+            }
+            
+            function createClickMarkerElement() {
+                const div = document.createElement('div');
+                div.className = 'click-marker';
+                div.textContent = '📍';
+                return div;
+            }
+            
+            // Функция обновления НИЖНЕЙ ПАНЕЛИ с кнопками маршрута
+            function updateBottomPanel(lat, lon, title = "Selected point", details = "") {
+                const panelInner = document.getElementById('panelInner');
+                if (!panelInner) return;
+                
+                // Формируем ссылки
+                const mapsUrl = `https://yandex.ru/maps/?rtext=~${lat},${lon}&rtt=auto`;
+                const navUrl = `yandexnavi://build_route_on_map?lat_to=${lat}&lon_to=${lon}`;
+                
+                // Детали парковки (если есть)
+                let parkingDetailsHtml = '';
+                if (details) {
+                    parkingDetailsHtml = `<div style="font-size: 12px; color: #2c6e9e; margin-top: 3px;">${escapeHtml(details)}</div>`;
                 }
                 
-                await ymaps3.ready;
-                
-                const { 
-                    YMap, 
-                    YMapDefaultSchemeLayer, 
-                    YMapDefaultFeaturesLayer,
-                    YMapMarker,
-                    YMapListener
-                } = ymaps3;
-                
-                const { YMapClusterer, clusterByGrid } = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
-                
-                const map = new YMap(
-                    document.getElementById('map'),
-                    {
-                        location: {
-                            center: [30.315868, 59.938732],
-                            zoom: 13
-                        }
-                    }
-                );
-                
-                // Добавляем подложку
-                map.addChild(new YMapDefaultSchemeLayer());
-                
-                // ВАЖНО: Добавляем слой для меток (без него маркеры могут не отображаться!)
-                // YMapDefaultFeaturesLayer - это стандартный слой для маркеров [citation:6]
-                map.addChild(new YMapDefaultFeaturesLayer());
-                
-                // ========== МАРКЕР ПОСЛЕДНЕГО КЛИКА ==========
-                let currentClickMarker = null;
-                let currentPopup = null;
-                
-                // Функция удаления маркера
-                function removeClickMarker() {
-                    if (currentClickMarker) {
-                        map.removeChild(currentClickMarker);
-                        currentClickMarker = null;
-                    }
-                }
-                
-                // Функция удаления попапа
-                function removePopup() {
-                    if (currentPopup) {
-                        currentPopup.remove();
-                        currentPopup = null;
-                    }
-                }
-                
-                // Функция создания HTML элемента маркера
-                function createClickMarkerElement() {
-                    const div = document.createElement('div');
-                    div.className = 'click-marker';
-                    div.textContent = '📍';
-                    return div;
-                }
-                
-                // Функция отображения попапа
-                function showRoutePopup(lat, lon, screenX, screenY) {
-                    removePopup();
-                    
-                    const popup = document.createElement('div');
-                    popup.className = 'route-popup';
-                    popup.innerHTML = `
-                        <div class="close-btn">×</div>
-                        <h4>📍 Selected location</h4>
-                        <div class="coords">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
-                        <button class="nav-btn">🚗 Open route in Yandex Navigator</button>
-                    `;
-                    
-                    document.body.appendChild(popup);
-                    currentPopup = popup;
-                    
-                    popup.querySelector('.close-btn').onclick = () => removePopup();
-                    
-                    popup.querySelector('.nav-btn').onclick = () => {
-                        //const url = `yandexnavi://build_route_on_map?lat_to=${lat}&lon_to=${lon}`;
-                        //const mapsUrl = `yandexmaps://maps.yandex.ru/?rtext=~${destLat},${destLon}&rtt=auto`;
-                        const webUrl = `https://yandex.ru/maps/?rtext=~${lat},${lon}&rtt=auto&z=15`;
-                        window.location.href = webUrl;
-                    };
-                    
-                    if (screenX && screenY) {
-                        popup.style.left = (screenX - popup.offsetWidth / 2) + 'px';
-                        popup.style.top = (screenY - 70) + 'px';
-                    }
-                }
-                
-                // ========== ГЛАВНЫЙ СЛУШАТЕЛЬ КЛИКОВ ==========
-                const mapListener = new YMapListener({
-                    layer: 'any',
-                    onClick: (layer, coordinates, object) => {
-                        if (coordinates && coordinates.length === 2) {
-                            const lon = coordinates[0];
-                            const lat = coordinates[1];
-                            
-                            console.log(`Click detected at: ${lat}, ${lon}`);
-                            
-                            // Удаляем старый маркер и попап
-                            removeClickMarker();
-                            removePopup();
-                            
-                            // Создаём HTML элемент для маркера
-                            const markerElement = createClickMarkerElement();
-                            
-                            // Создаём маркер (БЕЗ указания source, чтобы он добавился в YMapDefaultFeaturesLayer) [citation:5][citation:6]
-                            const newMarker = new YMapMarker(
-                                { 
-                                    coordinates: [lon, lat]
-                                },
-                                markerElement
-                            );
-                            
-                            // Добавляем маркер на карту
-                            map.addChild(newMarker);
-                            currentClickMarker = newMarker;
-                            
-                            console.log('Marker added to map');
-                            
-                            // Анимация пульсации
-                            markerElement.classList.add('pulse');
-                            setTimeout(() => markerElement.classList.remove('pulse'), 400);
-                            
-                            // Показываем попап с кнопкой маршрута
-                            const screenCoords = map.geoToScreen([lon, lat]);
-                            if (screenCoords) {
-                                showRoutePopup(lat, lon, screenCoords[0], screenCoords[1]);
-                            } else {
-                                showRoutePopup(lat, lon);
-                            }
-                            
-                            // Добавляем обработчик клика на маркер (через onclick на элементе)
-                            markerElement.onclick = (e) => {
-                                e.stopPropagation();
-                                console.log('Marker clicked');
-                                const newScreenCoords = map.geoToScreen([lon, lat]);
-                                if (newScreenCoords) {
-                                    showRoutePopup(lat, lon, newScreenCoords[0], newScreenCoords[1]);
-                                } else {
-                                    showRoutePopup(lat, lon);
-                                }
-                            };
-                        }
-                    }
-                });
-                
-                map.addChild(mapListener);
-                
-                // ========== ПОИСК ==========
-                const searchInput = document.getElementById('search-input');
-                const resultsContainer = document.getElementById('search-results');
-                
-                async function performSearch(query) {
-                    if (!query || query.length < 2) {
-                        resultsContainer.classList.remove('active');
-                        return;
-                    }
-                    
-                    try {
-                        const apiKey = '8fc5e4ba-8ce3-4230-8529-4898346c54ab';
-                        const url = `https://geocode-maps.yandex.ru/1.x/?apikey=${apiKey}&geocode=${encodeURIComponent(query)}&format=json&results=10`;
-                        
-                        const response = await fetch(url);
-                        const data = await response.json();
-                        const featureMembers = data.response.GeoObjectCollection.featureMember;
-                        
-                        if (featureMembers && featureMembers.length > 0) {
-                            resultsContainer.innerHTML = '';
-                            featureMembers.forEach(member => {
-                                const geoObject = member.GeoObject;
-                                const name = geoObject.name;
-                                const description = geoObject.description || '';
-                                const address = geoObject.metaDataProperty.GeocoderMetaData.text;
-                                const point = geoObject.Point.pos;
-                                const coords = point.split(' ').map(Number);
-                                
-                                const item = document.createElement('div');
-                                item.className = 'result-item';
-                                item.innerHTML = `<strong>${name}</strong><br><small>${description || address}</small>`;
-                                item.onclick = () => {
-                                    const lon = coords[0];
-                                    const lat = coords[1];
-                                    
-                                    map.setLocation({
-                                        center: [lon, lat],
-                                        zoom: 16,
-                                        duration: 300
-                                    });
-                                    
-                                    removeClickMarker();
-                                    removePopup();
-                                    
-                                    const markerElement = createClickMarkerElement();
-                                    const newMarker = new YMapMarker(
-                                        { coordinates: [lon, lat] },
-                                        markerElement
-                                    );
-                                    
-                                    map.addChild(newMarker);
-                                    currentClickMarker = newMarker;
-                                    
-                                    markerElement.classList.add('pulse');
-                                    setTimeout(() => markerElement.classList.remove('pulse'), 400);
-                                    
-                                    setTimeout(() => {
-                                        const screenCoords = map.geoToScreen([lon, lat]);
-                                        if (screenCoords) {
-                                            showRoutePopup(lat, lon, screenCoords[0], screenCoords[1]);
-                                        } else {
-                                            showRoutePopup(lat, lon);
-                                        }
-                                    }, 100);
-                                    
-                                    markerElement.onclick = (e) => {
-                                        e.stopPropagation();
-                                        const newScreenCoords = map.geoToScreen([lon, lat]);
-                                        if (newScreenCoords) {
-                                            showRoutePopup(lat, lon, newScreenCoords[0], newScreenCoords[1]);
-                                        } else {
-                                            showRoutePopup(lat, lon);
-                                        }
-                                    };
-                                    
-                                    resultsContainer.classList.remove('active');
-                                    searchInput.value = name;
-                                };
-                                resultsContainer.appendChild(item);
-                            });
-                            resultsContainer.classList.add('active');
-                        } else {
-                            resultsContainer.innerHTML = '<div class="result-item">No results found</div>';
-                            resultsContainer.classList.add('active');
-                        }
-                    } catch (error) {
-                        console.error('Search error:', error);
-                    }
-                }
-                
-                let searchTimeout;
-                searchInput.addEventListener('input', (e) => {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => performSearch(e.target.value), 300);
-                });
-                
-                searchInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        clearTimeout(searchTimeout);
-                        performSearch(searchInput.value);
-                    }
-                });
-                
-                document.addEventListener('click', (e) => {
-                    if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
-                        resultsContainer.classList.remove('active');
-                    }
-                    if (currentPopup && !currentPopup.contains(e.target)) {
-                        if (currentClickMarker) {
-                            const markerElement = currentClickMarker.getElement();
-                            if (markerElement && markerElement.contains(e.target)) {
-                                return;
-                            }
-                        }
-                        removePopup();
-                    }
-                });
-                
-                // ========== ДАННЫЕ О ПАРКОВКАХ ==========
-                const parkings = [
-                    { lat: 59.938732, lon: 30.315868, name: "Palace Square", free: 23, total: 50, address: "Palace Sq., 1" },
-                    { lat: 59.935101, lon: 30.324104, name: "Nevsky Prospekt 30", free: 5, total: 30, address: "Nevsky Ave., 30" },
-                    { lat: 59.934280, lon: 30.306633, name: "St. Isaac's Cathedral", free: 12, total: 40, address: "Isaac's Sq., 4" },
-                    { lat: 59.932800, lon: 30.295700, name: "Mariinsky Theatre", free: 8, total: 25, address: "Theatre Sq., 1" },
-                    { lat: 59.944700, lon: 30.323700, name: "Summer Garden", free: 18, total: 35, address: "Kutuzov Emb., 2" },
-                    { lat: 59.956800, lon: 30.308300, name: "Petrograd Embankment", free: 42, total: 80, address: "Petrograd Emb., 20" },
-                    { lat: 59.961200, lon: 30.300500, name: "Kronverksky Ave", free: 3, total: 15, address: "Kronverksky Ave., 49" },
-                    { lat: 59.959500, lon: 30.319000, name: "Kamenny Island Ave", free: 28, total: 60, address: "Kamenny Island Ave., 35" },
-                    { lat: 59.942500, lon: 30.282200, name: "Vasileostrovsky Market", free: 14, total: 45, address: "Bolshoy Ave. V.O., 16" },
-                    { lat: 59.940300, lon: 30.275800, name: "Makarov Embankment", free: 7, total: 25, address: "Makarov Emb., 2" },
-                    { lat: 59.945100, lon: 30.270600, name: "Sea Port", free: 55, total: 120, address: "Maritime Glory Sq., 1" },
-                    { lat: 59.922100, lon: 30.319400, name: "Moscow Station", free: 19, total: 55, address: "Uprising Sq., 2" },
-                    { lat: 59.900800, lon: 30.329700, name: "Victory Park", free: 32, total: 70, address: "Moskovsky Ave., 188" },
-                    { lat: 59.895500, lon: 30.335600, name: "Elektrosila", free: 11, total: 35, address: "Moskovsky Ave., 139" },
-                    { lat: 59.928500, lon: 30.342900, name: "Tauride Garden", free: 21, total: 40, address: "Tchaikovsky St., 50" },
-                    { lat: 59.924400, lon: 30.351200, name: "Smolny Cathedral", free: 16, total: 45, address: "Proletarian Dictatorship Sq., 1" },
-                    { lat: 59.914500, lon: 30.295800, name: "Institute of Technology", free: 4, total: 20, address: "Moskovsky Ave., 26" },
-                    { lat: 59.927800, lon: 30.262200, name: "Mining University", free: 27, total: 55, address: "21st Line V.O., 2" },
-                    { lat: 59.950300, lon: 30.241700, name: "Primorsky Victory Park", free: 45, total: 100, address: "Krestovsky Ave., 23" },
-                    { lat: 59.953200, lon: 30.220600, name: "Gazprom Arena Stadium", free: 380, total: 800, address: "Football Alley, 1" },
-                    { lat: 59.969500, lon: 30.344500, name: "Piskaryovsky Ave", free: 38, total: 90, address: "Piskaryovsky Ave., 25" },
-                    { lat: 59.886600, lon: 30.319700, name: "Kupchino", free: 52, total: 110, address: "Malaya Balkanskaya St., 23" },
-                    { lat: 59.864100, lon: 30.265300, name: "Zvezdnaya", free: 31, total: 75, address: "Dunaisky Ave., 48" },
-                    { lat: 59.979200, lon: 30.265600, name: "Ozerki", free: 25, total: 60, address: "Vyborgskoye Sh., 23" }
-                ];
-                
-                function getColorByOccupancy(free, total) {
-                    if (total === 0) return '#95a5a6';
-                    const freePercent = (free / total) * 100;
-                    if (freePercent > 40) return '#2ecc71';
-                    if (freePercent > 15) return '#f39c12';
-                    return '#e74c3c';
-                }
-                
-                const features = parkings.map((parking, index) => ({
-                    type: 'Feature',
-                    id: index,
-                    geometry: { type: 'Point', coordinates: [parking.lon, parking.lat] },
-                    properties: {
-                        name: parking.name,
-                        free: parking.free,
-                        total: parking.total,
-                        address: parking.address
-                    }
-                }));
-                
-                const createMarker = (feature) => {
-                    const props = feature.properties;
-                    const color = getColorByOccupancy(props.free, props.total);
-                    
-                    const markerDiv = document.createElement('div');
-                    markerDiv.textContent = props.free;
-                    markerDiv.style.cssText = `
-                        background-color: ${color};
-                        width: 32px;
-                        height: 32px;
-                        border-radius: 50%;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        color: white;
-                        font-weight: bold;
-                        font-size: 13px;
-                        font-family: Arial, sans-serif;
-                        border: 2px solid white;
-                        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-                        cursor: pointer;
-                        transition: transform 0.2s;
-                    `;
-                    
-                    markerDiv.onmouseenter = () => { markerDiv.style.transform = 'scale(1.1)'; };
-                    markerDiv.onmouseleave = () => { markerDiv.style.transform = 'scale(1)'; };
-                    markerDiv.onclick = (e) => {
-                        e.stopPropagation();
-                        const freePercent = Math.round((props.free / props.total) * 100);
-                        const lon = feature.geometry.coordinates[0];
-                        const lat = feature.geometry.coordinates[1];
-                        
-                        removeClickMarker();
-                        removePopup();
-                        
-                        const clickMarkerElement = createClickMarkerElement();
-                        const newMarker = new YMapMarker(
-                            { coordinates: [lon, lat] },
-                            clickMarkerElement
-                        );
-                        
-                        map.addChild(newMarker);
-                        currentClickMarker = newMarker;
-                        
-                        clickMarkerElement.classList.add('pulse');
-                        setTimeout(() => clickMarkerElement.classList.remove('pulse'), 400);
-                        
-                        const screenCoords = map.geoToScreen([lon, lat]);
-                        if (screenCoords) {
-                            showRoutePopup(lat, lon, screenCoords[0], screenCoords[1]);
-                        } else {
-                            showRoutePopup(lat, lon);
-                        }
-                        
-                        clickMarkerElement.onclick = (clickEvent) => {
-                            clickEvent.stopPropagation();
-                            const newScreenCoords = map.geoToScreen([lon, lat]);
-                            if (newScreenCoords) {
-                                showRoutePopup(lat, lon, newScreenCoords[0], newScreenCoords[1]);
-                            } else {
-                                showRoutePopup(lat, lon);
-                            }
-                        };
-                        
-                        setTimeout(() => {
-                            alert(`📍 ${props.name}\n\n🚗 Free: ${props.free} of ${props.total}\n📊 Free: ${freePercent}%\n🏠 ${props.address || 'No address'}`);
-                        }, 100);
-                    };
-                    
-                    return new YMapMarker(
-                        { coordinates: feature.geometry.coordinates },
-                        markerDiv
-                    );
-                };
-                
-                const createCluster = (coordinates, features) => {
-                    const count = features.length;
-                    let totalFree = 0, totalSpots = 0;
-                    features.forEach(f => {
-                        totalFree += f.properties.free;
-                        totalSpots += f.properties.total;
-                    });
-                    const avgFreePercent = totalSpots > 0 ? Math.round((totalFree / totalSpots) * 100) : 0;
-                    
-                    const clusterDiv = document.createElement('div');
-                    clusterDiv.style.cssText = `
-                        background-color: #3498db;
-                        width: 44px;
-                        height: 44px;
-                        border-radius: 50%;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: center;
-                        align-items: center;
-                        color: white;
-                        font-family: Arial, sans-serif;
-                        font-weight: bold;
-                        border: 2px solid white;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                        cursor: pointer;
-                        transition: transform 0.2s;
-                    `;
-                    
-                    const numberSpan = document.createElement('span');
-                    numberSpan.textContent = count;
-                    numberSpan.style.cssText = 'font-size: 16px;';
-                    
-                    const percentSpan = document.createElement('span');
-                    percentSpan.textContent = `${avgFreePercent}%`;
-                    percentSpan.style.cssText = 'font-size: 9px; opacity: 0.9;';
-                    
-                    clusterDiv.appendChild(numberSpan);
-                    clusterDiv.appendChild(percentSpan);
-                    
-                    clusterDiv.onmouseenter = () => { clusterDiv.style.transform = 'scale(1.1)'; };
-                    clusterDiv.onmouseleave = () => { clusterDiv.style.transform = 'scale(1)'; };
-                    clusterDiv.onclick = (e) => {
-                        e.stopPropagation();
-                        const lon = coordinates[0];
-                        const lat = coordinates[1];
-                        
-                        removeClickMarker();
-                        removePopup();
-                        
-                        const clickMarkerElement = createClickMarkerElement();
-                        const newMarker = new YMapMarker(
-                            { coordinates: [lon, lat] },
-                            clickMarkerElement
-                        );
-                        
-                        map.addChild(newMarker);
-                        currentClickMarker = newMarker;
-                        
-                        clickMarkerElement.classList.add('pulse');
-                        setTimeout(() => clickMarkerElement.classList.remove('pulse'), 400);
-                        
-                        const screenCoords = map.geoToScreen([lon, lat]);
-                        if (screenCoords) {
-                            showRoutePopup(lat, lon, screenCoords[0], screenCoords[1]);
-                        } else {
-                            showRoutePopup(lat, lon);
-                        }
-                        
-                        clickMarkerElement.onclick = (clickEvent) => {
-                            clickEvent.stopPropagation();
-                            const newScreenCoords = map.geoToScreen([lon, lat]);
-                            if (newScreenCoords) {
-                                showRoutePopup(lat, lon, newScreenCoords[0], newScreenCoords[1]);
-                            } else {
-                                showRoutePopup(lat, lon);
-                            }
-                        };
-                    };
-                    
-                    return new YMapMarker(
-                        { coordinates: coordinates },
-                        clusterDiv
-                    );
-                };
-                
-                const clusterer = new YMapClusterer({
-                    features: features,
-                    method: clusterByGrid({ gridSize: 64 }),
-                    marker: createMarker,
-                    cluster: createCluster
-                });
-                
-                map.addChild(clusterer);
-                
-                console.log(`✅ Map loaded! Click anywhere → red marker + route button.`);
-                
-            } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('map').innerHTML = `
-                    <div style="display: flex; justify-content: center; align-items: center; height: 100%; font-family: Arial, sans-serif; background: #f5f5f5;">
-                        <div style="text-align: center; padding: 30px; background: white; border-radius: 12px;">
-                            <h3 style="color: #e74c3c;">❌ Error: ${error.message}</h3>
-                            <p>Make sure you have a valid API key and localhost is allowed in key restrictions.</p>
+                panelInner.innerHTML = `
+                    <div class="location-info">
+                        <div class="location-name">
+                            📍 ${escapeHtml(title)} 
+                            <span>route ready</span>
                         </div>
+                        <div class="location-coords">${lat.toFixed(5)}°, ${lon.toFixed(5)}°</div>
+                        ${parkingDetailsHtml}
+                    </div>
+                    <div class="route-actions">
+                        <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="route-btn">
+                            🚗 Yandex Maps
+                        </a>
+                        <a href="${navUrl}" class="nav-btn-mobile" target="_blank" rel="noopener noreferrer">
+                            📱 Navigator
+                        </a>
                     </div>
                 `;
             }
+            
+            function resetBottomPanelToEmpty() {
+                const panelInner = document.getElementById('panelInner');
+                if (panelInner) {
+                    panelInner.innerHTML = `<div class="empty-panel-message">📍 Click on the map or parking to see route options</div>`;
+                }
+            }
+            
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/[&<>]/g, function(m) {
+                    if (m === '&') return '&amp;';
+                    if (m === '<') return '&lt;';
+                    if (m === '>') return '&gt;';
+                    return m;
+                });
+            }
+            
+            // Установка выбранной точки на карте и обновление нижней панели
+            function setSelectedPoint(lat, lon, name, extraDetails = "") {
+                removeClickMarker();
+                
+                const markerEl = createClickMarkerElement();
+                const newMarker = new YMapMarker({ coordinates: [lon, lat] }, markerEl);
+                map.addChild(newMarker);
+                currentClickMarker = newMarker;
+                
+                markerEl.classList.add('pulse');
+                setTimeout(() => markerEl.classList.remove('pulse'), 400);
+                
+                let titleText = name || "Point on map";
+                let detailsText = extraDetails || "";
+                if (!name && !extraDetails) {
+                    detailsText = "Selected location — build route";
+                }
+                updateBottomPanel(lat, lon, titleText, detailsText);
+                
+                markerEl.onclick = (e) => {
+                    e.stopPropagation();
+                    updateBottomPanel(lat, lon, titleText, detailsText);
+                    markerEl.classList.add('pulse');
+                    setTimeout(() => markerEl.classList.remove('pulse'), 300);
+                };
+            }
+            
+            // ========== СЛУШАТЕЛЬ КЛИКА ПО КАРТЕ ==========
+            const mapListener = new YMapListener({
+                layer: 'any',
+                onClick: (layer, coordinates, object) => {
+                    if (coordinates && coordinates.length === 2) {
+                        const lon = coordinates[0];
+                        const lat = coordinates[1];
+                        setSelectedPoint(lat, lon, "Point on map", "Free click — route available");
+                    }
+                }
+            });
+            map.addChild(mapListener);
+            
+            // ========== КЛАСТЕРИЗАЦИЯ ПАРКОВОК ==========
+            const createMarker = (feature) => {
+                const props = feature.properties;
+                const color = getColorByOccupancy(props.free, props.total);
+                const div = document.createElement('div');
+                div.textContent = props.free;
+                div.style.cssText = `
+                    background-color: ${color};
+                    width: 34px; height: 34px; border-radius: 50%;
+                    display: flex; justify-content: center; align-items: center;
+                    color: white; font-weight: bold; font-size: 13px;
+                    font-family: Arial; border: 2px solid white;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+                    cursor: pointer; transition: transform 0.1s;
+                `;
+                div.onmouseenter = () => div.style.transform = 'scale(1.08)';
+                div.onmouseleave = () => div.style.transform = 'scale(1)';
+                div.onclick = (e) => {
+                    e.stopPropagation();
+                    const freePercent = Math.round((props.free / props.total) * 100);
+                    const details = `🚗 Free: ${props.free} of ${props.total} (${freePercent}% free) · ${props.address || 'No address'}`;
+                    setSelectedPoint(props.lat, props.lon, props.name, details);
+                };
+                return new YMapMarker({ coordinates: feature.geometry.coordinates }, div);
+            };
+            
+            const createCluster = (coordinates, featuresList) => {
+                const count = featuresList.length;
+                let totalFree = 0, totalSpots = 0;
+                featuresList.forEach(f => {
+                    totalFree += f.properties.free;
+                    totalSpots += f.properties.total;
+                });
+                const avgPercent = totalSpots > 0 ? Math.round((totalFree / totalSpots) * 100) : 0;
+                const clusterDiv = document.createElement('div');
+                clusterDiv.style.cssText = `
+                    background-color: #3498db; width: 44px; height: 44px; border-radius: 50%;
+                    display: flex; flex-direction: column; align-items: center; justify-content: center;
+                    color: white; font-weight: bold; border: 2px solid white;
+                    box-shadow: 0 3px 8px rgba(0,0,0,0.3); cursor: pointer;
+                `;
+                const spanCount = document.createElement('span');
+                spanCount.textContent = count;
+                spanCount.style.fontSize = '16px';
+                const spanPercent = document.createElement('span');
+                spanPercent.textContent = `${avgPercent}%`;
+                spanPercent.style.fontSize = '9px';
+                clusterDiv.appendChild(spanCount);
+                clusterDiv.appendChild(spanPercent);
+                clusterDiv.onclick = (e) => {
+                    e.stopPropagation();
+                    const clusterCenterLon = coordinates[0];
+                    const clusterCenterLat = coordinates[1];
+                    setSelectedPoint(clusterCenterLat, clusterCenterLon, `Cluster (${count} parkings)`, `Average free: ${avgPercent}% · ${count} parking spots grouped`);
+                    map.setLocation({ center: [clusterCenterLon, clusterCenterLat], zoom: 15, duration: 400 });
+                };
+                return new YMapMarker({ coordinates: coordinates }, clusterDiv);
+            };
+            
+            const clusterer = new YMapClusterer({
+                features: features,
+                method: clusterByGrid({ gridSize: 68 }),
+                marker: createMarker,
+                cluster: createCluster
+            });
+            map.addChild(clusterer);
+            
+            // ========== ПОИСК (геокодер) ==========
+            const searchInput = document.getElementById('search-input');
+            const resultsContainer = document.getElementById('search-results');
+            
+            async function performSearch(query) {
+                if (!query || query.length < 2) {
+                    resultsContainer.classList.remove('active');
+                    return;
+                }
+                try {
+                    const apiKey = '8fc5e4ba-8ce3-4230-8529-4898346c54ab';
+                    const url = `https://geocode-maps.yandex.ru/1.x/?apikey=${apiKey}&geocode=${encodeURIComponent(query)}&format=json&results=8`;
+                    const resp = await fetch(url);
+                    const data = await resp.json();
+                    const members = data.response.GeoObjectCollection.featureMember;
+                    if (members && members.length) {
+                        resultsContainer.innerHTML = '';
+                        members.forEach(member => {
+                            const geo = member.GeoObject;
+                            const name = geo.name;
+                            const address = geo.metaDataProperty.GeocoderMetaData.text;
+                            const point = geo.Point.pos.split(' ').map(Number);
+                            const lon = point[0], lat = point[1];
+                            const item = document.createElement('div');
+                            item.className = 'result-item';
+                            item.innerHTML = `<strong>${escapeHtml(name)}</strong><br><small>${escapeHtml(address.substring(0, 70))}</small>`;
+                            item.onclick = () => {
+                                map.setLocation({ center: [lon, lat], zoom: 16, duration: 400 });
+                                setSelectedPoint(lat, lon, name, `📍 ${address}`);
+                                resultsContainer.classList.remove('active');
+                                searchInput.value = name;
+                            };
+                            resultsContainer.appendChild(item);
+                        });
+                        resultsContainer.classList.add('active');
+                    } else {
+                        resultsContainer.innerHTML = '<div class="result-item">No results found</div>';
+                        resultsContainer.classList.add('active');
+                    }
+                } catch(e) {
+                    console.warn(e);
+                }
+            }
+            
+            let debounce;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(debounce);
+                debounce = setTimeout(() => performSearch(e.target.value), 330);
+            });
+            
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    clearTimeout(debounce);
+                    performSearch(searchInput.value);
+                }
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+                    resultsContainer.classList.remove('active');
+                }
+            });
+            
+            // Начальное состояние панели (пустое)
+            resetBottomPanelToEmpty();
+            
+            console.log("✅ Map ready: bottom route panel as map controls");
+        } catch (err) {
+            console.error(err);
+            document.getElementById('map').innerHTML = `<div style="padding:40px;background:white;margin:20px;border-radius:20px;">❌ Error: ${err.message}<br>Check API key / network</div>`;
         }
-        
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initMap);
-        } else {
-            initMap();
-        }
-    </script>
+    })();
+</script>
 </body>
 </html>
