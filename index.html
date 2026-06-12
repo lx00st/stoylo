@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Parking Map - Bottom Route Panel (Mobile Fixed)</title>
+    <title>Parking Map - Top Route Panel (Combined with Search)</title>
     <style>
         * {
             margin: 0;
@@ -18,7 +18,6 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            /* Для безопасных зон на iPhone */
             padding: 0;
             position: fixed;
             top: 0;
@@ -42,19 +41,28 @@
             width: 100%;
         }
 
-        /* Поисковое поле внутри карты, сверху по центру */
-        .custom-search {
+        /* === ВЕРХНЯЯ КОМБИНИРОВАННАЯ ПАНЕЛЬ: поиск + маршрут === */
+        .top-combined-panel {
             position: absolute;
             top: max(12px, env(safe-area-inset-top, 12px));
-            left: 50%;
-            transform: translateX(-50%);
-            width: 400px;
-            max-width: calc(100% - 32px);
+            left: max(12px, env(safe-area-inset-left, 12px));
+            right: max(12px, env(safe-area-inset-right, 12px));
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none; /* чтобы клики проходили сквозь обертку, но дочерние элементы будут с auto */
+        }
+
+        /* Поисковый блок */
+        .custom-search {
+            width: 100%;
             background: white;
             border-radius: 48px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.2);
             font-family: Arial, sans-serif;
+            pointer-events: auto;
+            position: relative;
         }
 
         .custom-search input {
@@ -104,22 +112,17 @@
             background: #f0f7ff;
         }
 
-        /* НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МАРШРУТА — исправлена для мобильных */
-        .bottom-route-panel {
-            position: absolute;
-            bottom: max(12px, env(safe-area-inset-bottom, 12px));
-            left: max(12px, env(safe-area-inset-left, 12px));
-            right: max(12px, env(safe-area-inset-right, 12px));
+        /* Панель маршрута (ранее bottom, теперь сверху) */
+        .route-info-panel {
             background: rgba(255, 255, 255, 0.98);
             backdrop-filter: blur(16px);
-            border-radius: 24px;
+            border-radius: 28px;
             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
-            z-index: 1000;
             pointer-events: auto;
             transition: all 0.2s ease;
             border: 1px solid rgba(255, 255, 255, 0.6);
-            /* Дополнительная защита от обрезания */
             overflow: hidden;
+            width: 100%;
         }
 
         .panel-inner {
@@ -225,10 +228,10 @@
             font-weight: 500;
         }
 
-        /* Легенда и инструкция внутри карты — подняты выше, чтобы не перекрывать панель */
+        /* Легенда и инструкция на карте (немного ниже, чтобы не перекрывать верхнюю панель) */
         .legend {
             position: absolute;
-            bottom: max(85px, env(safe-area-inset-bottom, 85px));
+            bottom: max(20px, env(safe-area-inset-bottom, 20px));
             right: max(12px, env(safe-area-inset-right, 12px));
             background: rgba(255,255,255,0.94);
             backdrop-filter: blur(4px);
@@ -277,7 +280,7 @@
 
         .instruction {
             position: absolute;
-            bottom: max(85px, env(safe-area-inset-bottom, 85px));
+            bottom: max(20px, env(safe-area-inset-bottom, 20px));
             left: max(12px, env(safe-area-inset-left, 12px));
             background: rgba(0,0,0,0.7);
             backdrop-filter: blur(6px);
@@ -322,13 +325,18 @@
             animation: pulse 0.35s ease-in-out;
         }
 
-        /* Адаптив для мобильных — улучшенная нижняя панель без обрезания */
+        /* Адаптив для мобильных — верхняя панель занимает оптимальное место */
         @media (max-width: 650px) {
-            .bottom-route-panel {
-                bottom: max(10px, env(safe-area-inset-bottom, 10px));
+            .top-combined-panel {
+                top: max(10px, env(safe-area-inset-top, 10px));
                 left: max(10px, env(safe-area-inset-left, 10px));
                 right: max(10px, env(safe-area-inset-right, 10px));
-                border-radius: 20px;
+                gap: 8px;
+            }
+            
+            .custom-search input {
+                padding: 12px 16px;
+                font-size: 14px;
             }
             
             .panel-inner {
@@ -359,27 +367,17 @@
             }
             
             .legend {
-                bottom: max(95px, env(safe-area-inset-bottom, 95px));
+                bottom: max(15px, env(safe-area-inset-bottom, 15px));
                 right: 10px;
                 padding: 8px 12px;
                 max-width: 140px;
             }
             
             .instruction {
-                bottom: max(95px, env(safe-area-inset-bottom, 95px));
+                bottom: max(15px, env(safe-area-inset-bottom, 15px));
                 left: 10px;
                 font-size: 9px;
                 white-space: nowrap;
-            }
-            
-            .custom-search {
-                top: max(10px, env(safe-area-inset-top, 10px));
-                width: calc(100% - 24px);
-            }
-            
-            .custom-search input {
-                padding: 12px 16px;
-                font-size: 14px;
             }
         }
         
@@ -396,10 +394,10 @@
                 font-size: 0.85rem;
             }
             .legend {
-                display: none; /* скрываем легенду на совсем мелких, чтобы не мешала */
+                display: none; /* скрываем легенду на совсем мелких */
             }
             .instruction {
-                bottom: max(100px, env(safe-area-inset-bottom, 100px));
+                bottom: max(15px, env(safe-area-inset-bottom, 15px));
                 font-size: 8px;
             }
         }
@@ -410,16 +408,19 @@
 <div class="map-container">
     <div id="map"></div>
     
-    <!-- Поиск внутри карты (сверху) -->
-    <div class="custom-search">
-        <input type="text" id="search-input" placeholder="🔍 Search for parking or address...">
-        <div class="results" id="search-results"></div>
-    </div>
-    
-    <!-- НИЖНЯЯ ПАНЕЛЬ С КНОПКОЙ МАРШРУТА (исправлена для мобильных) -->
-    <div class="bottom-route-panel" id="bottomRoutePanel">
-        <div class="panel-inner" id="panelInner">
-            <div class="empty-panel-message">📍 Tap map or parking → route here</div>
+    <!-- ВЕРХНЯЯ КОМБИНИРОВАННАЯ ПАНЕЛЬ: поиск сверху, под ним панель маршрута -->
+    <div class="top-combined-panel">
+        <!-- Поиск -->
+        <div class="custom-search">
+            <input type="text" id="search-input" placeholder="🔍 Search for parking or address...">
+            <div class="results" id="search-results"></div>
+        </div>
+        
+        <!-- Панель маршрута (бывшая bottom-route-panel, теперь сверху) -->
+        <div class="route-info-panel" id="routeInfoPanel">
+            <div class="panel-inner" id="panelInner">
+                <div class="empty-panel-message">📍 Tap map or parking → route here</div>
+            </div>
         </div>
     </div>
     
@@ -518,8 +519,8 @@
                 return div;
             }
             
-            // Функция обновления НИЖНЕЙ ПАНЕЛИ с кнопками маршрута
-            function updateBottomPanel(lat, lon, title = "Selected point", details = "") {
+            // Функция обновления ВЕРХНЕЙ панели маршрута
+            function updateRoutePanel(lat, lon, title = "Selected point", details = "") {
                 const panelInner = document.getElementById('panelInner');
                 if (!panelInner) return;
                 
@@ -551,7 +552,7 @@
                 `;
             }
             
-            function resetBottomPanelToEmpty() {
+            function resetRoutePanelToEmpty() {
                 const panelInner = document.getElementById('panelInner');
                 if (panelInner) {
                     panelInner.innerHTML = `<div class="empty-panel-message">📍 Tap map or parking → route panel</div>`;
@@ -568,7 +569,7 @@
                 });
             }
             
-            // Установка выбранной точки на карте и обновление нижней панели
+            // Установка выбранной точки на карте и обновление верхней панели маршрута
             function setSelectedPoint(lat, lon, name, extraDetails = "") {
                 removeClickMarker();
                 
@@ -585,11 +586,11 @@
                 if (!name && !extraDetails) {
                     detailsText = "Selected location — build route";
                 }
-                updateBottomPanel(lat, lon, titleText, detailsText);
+                updateRoutePanel(lat, lon, titleText, detailsText);
                 
                 markerEl.onclick = (e) => {
                     e.stopPropagation();
-                    updateBottomPanel(lat, lon, titleText, detailsText);
+                    updateRoutePanel(lat, lon, titleText, detailsText);
                     markerEl.classList.add('pulse');
                     setTimeout(() => markerEl.classList.remove('pulse'), 300);
                 };
@@ -738,8 +739,9 @@
                 }
             });
             
-            resetBottomPanelToEmpty();
-            console.log("✅ Mobile optimized: bottom panel uses safe-area-inset");
+            // Сброс панели при старте
+            resetRoutePanelToEmpty();
+            console.log("✅ Top combined panel (search + route) ready. Safe area respected.");
         } catch (err) {
             console.error(err);
             document.getElementById('map').innerHTML = `<div style="padding:40px;background:white;margin:20px;border-radius:20px;">❌ Error: ${err.message}<br>Check API key</div>`;
