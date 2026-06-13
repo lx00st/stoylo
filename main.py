@@ -8,6 +8,7 @@ import time
 import threading
 from datetime import datetime
 from typing import List, Dict, Any
+import asyncio
 
 app = FastAPI(title="Dynamic Parking Map Service")
 
@@ -51,51 +52,72 @@ BASE_PARKINGS = [
 # Текущие данные парковок с динамическими свободными местами
 active_parkings: List[Dict[str, Any]] = []
 
-def update_parking_state():
-    """Фоновая функция для симуляции динамического обновления свободных мест"""
-    global active_parkings
+# def update_parking_state():
+#     """Фоновая функция для симуляции динамического обновления свободных мест"""
+#     global active_parkings
     
-    # Инициализация начальными случайными значениями
-    for p in BASE_PARKINGS:
-        free = random.randint(0, p["total"])
-        active_parkings.append({
-            **p,
-            "free": free,
-            "last_update": datetime.now().isoformat()
-        })
+#     # Инициализация начальными случайными значениями
+#     for p in BASE_PARKINGS:
+#         free = random.randint(0, p["total"])
+#         active_parkings.append({
+#             **p,
+#             "free": free,
+#             "last_update": datetime.now().isoformat()
+#         })
     
-    # Цикл обновления данных
-    while True:
-        time.sleep(3)  # Обновляем каждые 3 секунды
+#     # Цикл обновления данных
+#     while True:
+#         time.sleep(3)  # Обновляем каждые 3 секунды
         
-        for i, p in enumerate(active_parkings):
-            # Случайное изменение: от -3 до +3 мест
-            change = random.randint(-3, 3)
-            new_free = p["free"] + change
-            new_free = max(0, min(p["total"], new_free))
+#         for i, p in enumerate(active_parkings):
+#             # Случайное изменение: от -3 до +3 мест
+#             change = random.randint(-3, 3)
+#             new_free = p["free"] + change
+#             new_free = max(0, min(p["total"], new_free))
             
-            # Иногда добавляем более заметные изменения
-            if random.random() < 0.1:  # 10% шанс на событие
-                big_change = random.randint(-8, 8)
-                new_free = max(0, min(p["total"], new_free + big_change))
+#             # Иногда добавляем более заметные изменения
+#             if random.random() < 0.1:  # 10% шанс на событие
+#                 big_change = random.randint(-8, 8)
+#                 new_free = max(0, min(p["total"], new_free + big_change))
             
-            active_parkings[i] = {
-                **p,
-                "free": new_free,
-                "last_update": datetime.now().isoformat()
-            }
+#             active_parkings[i] = {
+#                 **p,
+#                 "free": new_free,
+#                 "last_update": datetime.now().isoformat()
+#             }
         
-        print(f"🔄 Parking state updated at {datetime.now().strftime('%H:%M:%S')}")
+#         print(f"🔄 Parking state updated at {datetime.now().strftime('%H:%M:%S')}")
 
-# Запускаем фоновый поток для обновления состояния
-background_thread = threading.Thread(target=update_parking_state, daemon=True)
-background_thread.start()
+# # Запускаем фоновый поток для обновления состояния
+# background_thread = threading.Thread(target=update_parking_state, daemon=True)
+# background_thread.start()
+
+# Асинхронный апдейтер вместо threading
+async def background_updater():
+    global active_parkings
+    while True:
+        await asyncio.sleep(3)
+        for i, p in enumerate(active_parkings):
+            change = random.randint(-3, 3)
+            new_free = max(0, min(p["total"], p["free"] + change))
+            if random.random() < 0.1:
+                new_free = max(0, min(p["total"], new_free + random.randint(-8, 8)))
+            active_parkings[i] = {**p, "free": new_free, "last_update": datetime.now().isoformat()}
+        print(f"🔄 Updated at {datetime.now().strftime('%H:%M:%S')}")
 
 @app.on_event("startup")
 async def startup_event():
-    print("✅ Dynamic parking service started!")
-    print("📊 State updates every 3 seconds")
-    print("📍 Client will fetch every 10 seconds")
+    # Инициализация
+    for p in BASE_PARKINGS:
+        active_parkings.append({**p, "free": random.randint(0, p["total"]), "last_update": datetime.now().isoformat()})
+    asyncio.create_task(background_updater())
+    print("✅ Service started on Render!")
+
+# @app.on_event("startup")
+# async def startup_event():
+#     print("✅ Dynamic parking service started!")
+#     print("📊 State updates every 3 seconds")
+#     print("📍 Client will fetch every 10 seconds")
 
 @app.get("/", response_class=HTMLResponse)
 async def get_map():
