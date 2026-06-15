@@ -37,20 +37,29 @@
             height: 100%;
         }
 
-        /* ========== СТИЛЬ МОБИЛЬНОГО ИНТЕРФЕЙСА ========== */
-        /* Главная плавающая панель поиска */
-        .search-card {
+        /* ========== ВЕРХНЯЯ ПАНЕЛЬ УПРАВЛЕНИЯ ========== */
+        /* Основной контейнер управления — всё наверху */
+        .control-panel-top {
             position: absolute;
             top: max(12px, env(safe-area-inset-top, 12px));
-            left: max(16px, env(safe-area-inset-left, 16px));
-            right: max(16px, env(safe-area-inset-right, 16px));
-            z-index: 1100;
+            left: max(12px, env(safe-area-inset-left, 12px));
+            right: max(12px, env(safe-area-inset-right, 12px));
+            z-index: 1200;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        /* Блок поиска (стиль iOS) */
+        .search-card {
             background: rgba(255, 255, 255, 0.96);
             backdrop-filter: blur(20px);
             border-radius: 34px;
             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.02);
             transition: all 0.25s ease;
             border: 0.5px solid rgba(255, 255, 255, 0.5);
+            pointer-events: auto;
         }
 
         .search-inner {
@@ -100,7 +109,7 @@
             pointer-events: auto;
         }
 
-        /* Результаты поиска в стиле iOS */
+        /* Результаты поиска */
         .search-results-modern {
             position: absolute;
             top: 100%;
@@ -110,7 +119,7 @@
             backdrop-filter: blur(20px);
             border-radius: 28px;
             margin-top: 12px;
-            max-height: 65vh;
+            max-height: 55vh;
             overflow-y: auto;
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
             display: none;
@@ -184,44 +193,79 @@
             font-weight: 470;
         }
 
-        /* Кнопка маршрута — стиль Apple Maps */
-        .route-float-btn {
-            position: absolute;
-            bottom: max(28px, env(safe-area-inset-bottom, 28px));
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1100;
-            background: rgba(255, 255, 255, 0.96);
+        /* Панель маршрута и кнопки действий — тоже наверху, под поиском */
+        .action-bar {
+            background: rgba(255, 255, 255, 0.94);
             backdrop-filter: blur(20px);
             border-radius: 44px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-            transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
-            border: 0.5px solid rgba(255, 255, 255, 0.7);
-        }
-
-        .route-action {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+            pointer-events: auto;
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px 24px;
+            justify-content: space-between;
+            padding: 6px 8px 6px 20px;
+            border: 0.5px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .selected-info {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1c1c1e;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .selected-info span {
+            color: #8e8e93;
+            font-weight: 400;
+        }
+
+        .route-button {
+            background: #007aff;
+            border: none;
+            border-radius: 40px;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 590;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .route-button:active {
+            transform: scale(0.96);
+            background: #005fc1;
+        }
+
+        .clear-btn {
             background: transparent;
             border: none;
-            font-size: 17px;
-            font-weight: 590;
-            color: #007aff;
-            font-family: inherit;
+            font-size: 20px;
             cursor: pointer;
-            letter-spacing: -0.2px;
+            padding: 8px;
+            color: #8e8e93;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 30px;
+            transition: background 0.2s;
         }
 
-        .route-action:active {
-            transform: scale(0.97);
+        .clear-btn:active {
+            background: rgba(0,0,0,0.05);
         }
 
-        /* Легенда — минималистичный чип */
+        /* Легенда — компактная, в правом нижнем углу */
         .legend-chip {
             position: absolute;
-            bottom: max(100px, env(safe-area-inset-bottom, 100px));
+            bottom: max(24px, env(safe-area-inset-bottom, 24px));
             right: max(14px, env(safe-area-inset-right, 14px));
             z-index: 1050;
             background: rgba(255, 255, 255, 0.88);
@@ -285,7 +329,7 @@
             animation: modernPulse 0.5s ease-out;
         }
 
-        /* Стили для кластеров и маркеров (динамические) */
+        /* Стили для кластеров и маркеров */
         .cluster-modern {
             background: #007aff;
             border-radius: 50%;
@@ -309,13 +353,13 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
-        /* Сообщение подсказка */
+        /* Тост-сообщение */
         .toast-tip {
             position: absolute;
             bottom: 100px;
             left: 20px;
             right: 20px;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.75);
             backdrop-filter: blur(12px);
             color: white;
             padding: 10px 16px;
@@ -328,19 +372,20 @@
             pointer-events: none;
         }
 
-        @media (max-width: 500px) {
-            .search-card {
-                top: 12px;
-                left: 12px;
-                right: 12px;
+        @media (max-width: 550px) {
+            .action-bar {
+                padding: 5px 8px 5px 16px;
             }
-            .route-action {
-                padding: 10px 22px;
-                font-size: 16px;
+            .route-button {
+                padding: 8px 16px;
+                font-size: 13px;
+            }
+            .selected-info {
+                font-size: 12px;
             }
             .legend-chip {
-                bottom: 90px;
-                right: 12px;
+                bottom: 20px;
+                right: 10px;
                 padding: 6px 12px;
             }
         }
@@ -350,24 +395,31 @@
 <div class="map-container">
     <div id="map"></div>
 
-    <!-- Мобильная панель поиска -->
-    <div class="search-card" id="searchCard">
-        <div class="search-inner">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="searchInputModern" class="search-input" placeholder="Search for parking or place..." autocomplete="off">
-            <button id="cancelSearchBtn" class="cancel-btn">Cancel</button>
+    <!-- ВСЁ УПРАВЛЕНИЕ НАВЕРХУ -->
+    <div class="control-panel-top">
+        <!-- Блок поиска -->
+        <div class="search-card" id="searchCard">
+            <div class="search-inner">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInputModern" class="search-input" placeholder="Search for parking or place..." autocomplete="off">
+                <button id="cancelSearchBtn" class="cancel-btn">Cancel</button>
+            </div>
+            <div id="modernSearchResults" class="search-results-modern"></div>
         </div>
-        <div id="modernSearchResults" class="search-results-modern"></div>
+
+        <!-- Панель маршрута и информации о выбранной точке -->
+        <div class="action-bar" id="actionBar">
+            <div class="selected-info" id="selectedInfoLabel">
+                📍 <span>Tap on map or search</span>
+            </div>
+            <button id="clearSelectionBtn" class="clear-btn" title="Clear selection">✕</button>
+            <button id="routeActionBtn" class="route-button">
+                🧭 Navigate
+            </button>
+        </div>
     </div>
 
-    <!-- Кнопка построения маршрута (плавающая снизу) -->
-    <div class="route-float-btn" id="routeFloatBtn">
-        <button id="dynamicRouteModernBtn" class="route-action">
-            🧭 Navigate
-        </button>
-    </div>
-
-    <!-- Легенда стильная -->
+    <!-- Легенда (нижний угол) -->
     <div class="legend-chip">
         <div class="legend-row"><div class="legend-dot" style="background: #34c759;"></div><span class="legend-text">Free >40%</span></div>
         <div class="legend-row"><div class="legend-dot" style="background: #ff9f0a;"></div><span class="legend-text">15–40%</span></div>
@@ -396,7 +448,7 @@
         map.addChild(new YMapDefaultSchemeLayer());
         map.addChild(new YMapDefaultFeaturesLayer());
 
-        // ---- Парковки (реальные данные) ----
+        // ---- Парковки ----
         const parkings = [
             { lat: 59.938732, lon: 30.315868, name: "Palace Square", free: 23, total: 50, address: "Palace Sq., 1" },
             { lat: 59.935101, lon: 30.324104, name: "Nevsky Prospekt 30", free: 5, total: 30, address: "Nevsky Ave., 30" },
@@ -455,15 +507,29 @@
             properties: { name: p.name, free: p.free, total: p.total, address: p.address, lat: p.lat, lon: p.lon }
         }));
 
-        // ---- маркер выбранной точки ----
+        // ---- Маркер выбранной точки ----
         let currentClickMarker = null;
         let currentSelectedLat = null;
         let currentSelectedLon = null;
+        let currentSelectedName = null;
 
         function removeClickMarker() {
             if (currentClickMarker) {
                 map.removeChild(currentClickMarker);
                 currentClickMarker = null;
+            }
+        }
+
+        function updateSelectionUI(name) {
+            const infoDiv = document.getElementById('selectedInfoLabel');
+            if (name && name !== "Dropped pin") {
+                infoDiv.innerHTML = `📍 ${name.length > 28 ? name.slice(0,25)+'...' : name}`;
+            } else if (name === "Dropped pin") {
+                infoDiv.innerHTML = `📍 <span>Selected point</span>`;
+            } else if (currentSelectedLat && !name) {
+                infoDiv.innerHTML = `📍 <span>Location selected</span>`;
+            } else {
+                infoDiv.innerHTML = `📍 <span>Tap on map or search</span>`;
             }
         }
 
@@ -474,14 +540,13 @@
             return div;
         }
 
-        function updateRouteLink(lat, lon) {
-            const routeBtn = document.getElementById('dynamicRouteModernBtn');
-            if (routeBtn && lat && lon) {
-                routeBtn.onclick = (e) => {
-                    e.preventDefault();
-                    const url = `https://yandex.ru/maps/?rtext=~${lat},${lon}&rtt=auto`;
-                    window.open(url, '_blank');
-                };
+        function openNavigation() {
+            if (currentSelectedLat && currentSelectedLon) {
+                const url = `https://yandex.ru/maps/?rtext=~${currentSelectedLat},${currentSelectedLon}&rtt=auto`;
+                window.open(url, '_blank');
+                showToast(`Opening route...`, 1200);
+            } else {
+                showToast(`Select a location on map first`, 1500);
             }
         }
 
@@ -494,7 +559,7 @@
             }, duration);
         }
 
-        function setSelectedPoint(lat, lon, name) {
+        function setSelectedPoint(lat, lon, name, isParking = true) {
             removeClickMarker();
             const markerEl = createModernMarkerElement();
             const newMarker = new YMapMarker({ coordinates: [lon, lat] }, markerEl);
@@ -502,16 +567,31 @@
             currentClickMarker = newMarker;
             currentSelectedLat = lat;
             currentSelectedLon = lon;
+            currentSelectedName = name;
+            
+            updateSelectionUI(name);
+            
             markerEl.classList.add('pulse-modern');
             setTimeout(() => markerEl.classList.remove('pulse-modern'), 500);
-            updateRouteLink(lat, lon);
-            markerEl.onclick = () => {
-                updateRouteLink(lat, lon);
+            
+            markerEl.onclick = (e) => {
+                e.stopPropagation();
+                openNavigation();
                 markerEl.classList.add('pulse-modern');
                 setTimeout(() => markerEl.classList.remove('pulse-modern'), 300);
-                showToast(`📍 ${name} · tap Navigate`, 1200);
             };
-            showToast(`📍 Selected: ${name}`, 1000);
+            
+            const msg = name ? `📍 ${name} selected` : `📍 Point selected`;
+            showToast(msg, 900);
+        }
+
+        function clearSelection() {
+            removeClickMarker();
+            currentSelectedLat = null;
+            currentSelectedLon = null;
+            currentSelectedName = null;
+            updateSelectionUI(null);
+            showToast(`Selection cleared`, 800);
         }
 
         // Слушатель клика по карте
@@ -519,13 +599,13 @@
             layer: 'any',
             onClick: (layer, coords) => {
                 if (coords && coords.length === 2) {
-                    setSelectedPoint(coords[1], coords[0], "Dropped pin");
+                    setSelectedPoint(coords[1], coords[0], "Dropped pin", false);
                 }
             }
         });
         map.addChild(mapListener);
 
-        // --- Кластеризация с modern видом ---
+        // --- Кластеризация ---
         const createMarkerModern = (feature) => {
             const props = feature.properties;
             const color = getMarkerColor(props.free, props.total);
@@ -541,7 +621,7 @@
             `;
             div.onclick = (e) => {
                 e.stopPropagation();
-                setSelectedPoint(props.lat, props.lon, props.name);
+                setSelectedPoint(props.lat, props.lon, props.name, true);
                 map.setLocation({ center: [props.lon, props.lat], zoom: 16, duration: 300 });
             };
             return new YMapMarker({ coordinates: feature.geometry.coordinates }, div);
@@ -564,7 +644,7 @@
             div.innerHTML = `<span style="font-size:16px;font-weight:700;">${count}</span><span style="font-size:9px;">${avgPercent}%</span>`;
             div.onclick = (e) => {
                 e.stopPropagation();
-                setSelectedPoint(coordinates[1], coordinates[0], `Cluster · ${count} spots`);
+                setSelectedPoint(coordinates[1], coordinates[0], `Cluster · ${count} spots`, false);
                 map.setLocation({ center: [coordinates[0], coordinates[1]], zoom: 15, duration: 400 });
             };
             return new YMapMarker({ coordinates }, div);
@@ -578,10 +658,15 @@
         });
         map.addChild(clusterer);
 
-        // --- Поиск с радиусом 300m ---
+        // --- Поиск с радиусом 300м ---
         const searchInputModern = document.getElementById('searchInputModern');
         const resultsModern = document.getElementById('modernSearchResults');
         const cancelBtn = document.getElementById('cancelSearchBtn');
+        const clearBtn = document.getElementById('clearSelectionBtn');
+        const routeBtn = document.getElementById('routeActionBtn');
+
+        clearBtn.addEventListener('click', clearSelection);
+        routeBtn.addEventListener('click', openNavigation);
 
         function hideResults() {
             resultsModern.classList.remove('active');
@@ -637,7 +722,7 @@
                         `;
                         item.onclick = () => {
                             map.setLocation({ center: [lon, lat], zoom: 16, duration: 400 });
-                            setSelectedPoint(lat, lon, name);
+                            setSelectedPoint(lat, lon, name, true);
                             searchInputModern.value = name;
                             hideResults();
                             cancelBtn.classList.remove('visible');
@@ -670,17 +755,7 @@
             return str.replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
         }
 
-        // Установка дефолтной навигации (если ничего не выбрано — центр)
-        const defaultRouteBtn = document.getElementById('dynamicRouteModernBtn');
-        defaultRouteBtn.onclick = (e) => {
-            e.preventDefault();
-            if (currentSelectedLat && currentSelectedLon) {
-                window.open(`https://yandex.ru/maps/?rtext=~${currentSelectedLat},${currentSelectedLon}&rtt=auto`, '_blank');
-            } else {
-                window.open('https://yandex.ru/maps/', '_blank');
-            }
-        };
-        console.log("✅ Modern mobile UI ready");
+        console.log("✅ Управление перенесено наверх в стиле мобильных приложений");
     })();
 </script>
 </body>
