@@ -23,7 +23,6 @@
             left: 0;
         }
 
-        /* Карта на весь экран */
         .map-container {
             position: absolute;
             top: 0;
@@ -38,7 +37,6 @@
         }
 
         /* ========== ВЕРХНЯЯ ПАНЕЛЬ УПРАВЛЕНИЯ ========== */
-        /* Основной контейнер управления — всё наверху */
         .control-panel-top {
             position: absolute;
             top: max(12px, env(safe-area-inset-top, 12px));
@@ -51,15 +49,16 @@
             pointer-events: none;
         }
 
-        /* Блок поиска (стиль iOS) */
+        /* Блок поиска */
         .search-card {
             background: rgba(255, 255, 255, 0.96);
             backdrop-filter: blur(20px);
             border-radius: 34px;
             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.02);
-            transition: all 0.25s ease;
             border: 0.5px solid rgba(255, 255, 255, 0.5);
             pointer-events: auto;
+            position: relative;
+            z-index: 1201;
         }
 
         .search-inner {
@@ -109,26 +108,32 @@
             pointer-events: auto;
         }
 
-        /* Результаты поиска */
+        /* Результаты поиска — открываются ВНИЗ, НО динамически сдвигают контент */
+        .search-results-wrapper {
+            position: relative;
+            width: 100%;
+            pointer-events: auto;
+        }
+
         .search-results-modern {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
             background: rgba(255, 255, 255, 0.98);
             backdrop-filter: blur(20px);
             border-radius: 28px;
-            margin-top: 12px;
-            max-height: 55vh;
+            margin-top: 8px;
+            max-height: 0;
             overflow-y: auto;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-            display: none;
-            scrollbar-width: thin;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
+            transition: max-height 0.25s ease-out;
             border: 0.5px solid rgba(224, 224, 230, 0.6);
+            opacity: 0;
+            visibility: hidden;
         }
 
         .search-results-modern.active {
-            display: block;
+            max-height: 55vh;
+            opacity: 1;
+            visibility: visible;
+            overflow-y: auto;
         }
 
         .result-item-modern {
@@ -193,7 +198,7 @@
             font-weight: 470;
         }
 
-        /* Панель маршрута и кнопки действий — тоже наверху, под поиском */
+        /* Панель действий (инфо + навигация) */
         .action-bar {
             background: rgba(255, 255, 255, 0.94);
             backdrop-filter: blur(20px);
@@ -205,6 +210,14 @@
             justify-content: space-between;
             padding: 6px 8px 6px 20px;
             border: 0.5px solid rgba(255, 255, 255, 0.6);
+            transition: transform 0.2s ease, opacity 0.2s;
+        }
+
+        /* Когда результаты поиска открыты — панель навигации плавно уезжает вниз, чтобы не перекрывать */
+        .action-bar.shifted {
+            transform: translateY(calc(55vh + 20px));
+            opacity: 0.5;
+            pointer-events: none;
         }
 
         .selected-info {
@@ -262,7 +275,7 @@
             background: rgba(0,0,0,0.05);
         }
 
-        /* Легенда — компактная, в правом нижнем углу */
+        /* Легенда */
         .legend-chip {
             position: absolute;
             bottom: max(24px, env(safe-area-inset-bottom, 24px));
@@ -299,7 +312,7 @@
             font-size: 11px;
         }
 
-        /* Маркер клика — стильный пульс */
+        /* Маркер клика */
         .click-marker-modern {
             width: 48px;
             height: 48px;
@@ -329,7 +342,7 @@
             animation: modernPulse 0.5s ease-out;
         }
 
-        /* Стили для кластеров и маркеров */
+        /* Стили кластеров и маркеров парковок */
         .cluster-modern {
             background: #007aff;
             border-radius: 50%;
@@ -353,7 +366,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
-        /* Тост-сообщение */
+        /* Тост */
         .toast-tip {
             position: absolute;
             bottom: 100px;
@@ -388,6 +401,12 @@
                 right: 10px;
                 padding: 6px 12px;
             }
+            .search-results-modern.active {
+                max-height: 50vh;
+            }
+            .action-bar.shifted {
+                transform: translateY(calc(50vh + 20px));
+            }
         }
     </style>
 </head>
@@ -397,17 +416,19 @@
 
     <!-- ВСЁ УПРАВЛЕНИЕ НАВЕРХУ -->
     <div class="control-panel-top">
-        <!-- Блок поиска -->
+        <!-- Блок поиска с оберткой для результатов -->
         <div class="search-card" id="searchCard">
             <div class="search-inner">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="searchInputModern" class="search-input" placeholder="Search for parking or place..." autocomplete="off">
                 <button id="cancelSearchBtn" class="cancel-btn">Cancel</button>
             </div>
-            <div id="modernSearchResults" class="search-results-modern"></div>
+            <div class="search-results-wrapper">
+                <div id="modernSearchResults" class="search-results-modern"></div>
+            </div>
         </div>
 
-        <!-- Панель маршрута и информации о выбранной точке -->
+        <!-- Панель с выбранной точкой и навигацией -->
         <div class="action-bar" id="actionBar">
             <div class="selected-info" id="selectedInfoLabel">
                 📍 <span>Tap on map or search</span>
@@ -419,7 +440,7 @@
         </div>
     </div>
 
-    <!-- Легенда (нижний угол) -->
+    <!-- Легенда -->
     <div class="legend-chip">
         <div class="legend-row"><div class="legend-dot" style="background: #34c759;"></div><span class="legend-text">Free >40%</span></div>
         <div class="legend-row"><div class="legend-dot" style="background: #ff9f0a;"></div><span class="legend-text">15–40%</span></div>
@@ -448,7 +469,7 @@
         map.addChild(new YMapDefaultSchemeLayer());
         map.addChild(new YMapDefaultFeaturesLayer());
 
-        // ---- Парковки ----
+        // ---- Данные парковок ----
         const parkings = [
             { lat: 59.938732, lon: 30.315868, name: "Palace Square", free: 23, total: 50, address: "Palace Sq., 1" },
             { lat: 59.935101, lon: 30.324104, name: "Nevsky Prospekt 30", free: 5, total: 30, address: "Nevsky Ave., 30" },
@@ -507,7 +528,7 @@
             properties: { name: p.name, free: p.free, total: p.total, address: p.address, lat: p.lat, lon: p.lon }
         }));
 
-        // ---- Маркер выбранной точки ----
+        // ---- Выбранная точка и маркер ----
         let currentClickMarker = null;
         let currentSelectedLat = null;
         let currentSelectedLon = null;
@@ -594,7 +615,7 @@
             showToast(`Selection cleared`, 800);
         }
 
-        // Слушатель клика по карте
+        // Клик по карте
         const mapListener = new YMapListener({
             layer: 'any',
             onClick: (layer, coords) => {
@@ -658,18 +679,27 @@
         });
         map.addChild(clusterer);
 
-        // --- Поиск с радиусом 300м ---
+        // --- Поиск с динамическим сдвигом панели ---
         const searchInputModern = document.getElementById('searchInputModern');
         const resultsModern = document.getElementById('modernSearchResults');
         const cancelBtn = document.getElementById('cancelSearchBtn');
         const clearBtn = document.getElementById('clearSelectionBtn');
         const routeBtn = document.getElementById('routeActionBtn');
+        const actionBar = document.getElementById('actionBar');
 
         clearBtn.addEventListener('click', clearSelection);
         routeBtn.addEventListener('click', openNavigation);
 
         function hideResults() {
             resultsModern.classList.remove('active');
+            actionBar.classList.remove('shifted');
+        }
+
+        function showResults() {
+            if (resultsModern.children.length > 0) {
+                resultsModern.classList.add('active');
+                actionBar.classList.add('shifted');
+            }
         }
 
         cancelBtn.addEventListener('click', () => {
@@ -680,6 +710,9 @@
         });
 
         searchInputModern.addEventListener('focus', () => {
+            if (searchInputModern.value.length > 1 && resultsModern.children.length > 0) {
+                showResults();
+            }
             if (searchInputModern.value.length > 1) cancelBtn.classList.add('visible');
         });
 
@@ -729,15 +762,15 @@
                         };
                         resultsModern.appendChild(item);
                     }
-                    resultsModern.classList.add('active');
+                    showResults();
                 } else {
                     resultsModern.innerHTML = '<div class="result-item-modern">No places found</div>';
-                    resultsModern.classList.add('active');
+                    showResults();
                 }
             } catch(e) {
                 console.warn(e);
                 resultsModern.innerHTML = '<div class="result-item-modern">Search error</div>';
-                resultsModern.classList.add('active');
+                showResults();
             }
         }
 
@@ -747,7 +780,10 @@
             debounceTimer = setTimeout(() => performModernSearch(e.target.value), 400);
         });
         document.addEventListener('click', (e) => {
-            if (!searchInputModern.contains(e.target) && !resultsModern.contains(e.target)) hideResults();
+            if (!searchInputModern.contains(e.target) && !resultsModern.contains(e.target)) {
+                hideResults();
+                cancelBtn.classList.remove('visible');
+            }
         });
 
         function escapeHtml(str) {
@@ -755,7 +791,7 @@
             return str.replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
         }
 
-        console.log("✅ Управление перенесено наверх в стиле мобильных приложений");
+        console.log("✅ Исправлено: результаты поиска видны и панель навигации уезжает вниз");
     })();
 </script>
 </body>
