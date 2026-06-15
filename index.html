@@ -2,687 +2,685 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Parking Map - Search with Nearby Free Spots</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Parkly — Find Parking Fast</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            font-family: 'Segoe UI', 'Arial', sans-serif;
-            background: #e9f0f5;
+            font-family: -apple-system, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: #f5f7fb;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
+            width: 100vw;
             overflow: hidden;
-            padding: 0;
             position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
         }
 
+        /* Карта на весь экран */
         .map-container {
-            flex: 1;
-            position: relative;
-            background: #cbdde6;
-            min-height: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
         }
 
         #map {
-            height: 100%;
             width: 100%;
+            height: 100%;
         }
 
-        /* Верхняя панель: поиск + кнопка маршрута */
-        .top-combined-panel {
+        /* ========== СТИЛЬ МОБИЛЬНОГО ИНТЕРФЕЙСА ========== */
+        /* Главная плавающая панель поиска */
+        .search-card {
             position: absolute;
             top: max(12px, env(safe-area-inset-top, 12px));
-            left: max(12px, env(safe-area-inset-left, 12px));
-            right: max(12px, env(safe-area-inset-right, 12px));
-            z-index: 1000;
+            left: max(16px, env(safe-area-inset-left, 16px));
+            right: max(16px, env(safe-area-inset-right, 16px));
+            z-index: 1100;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            border-radius: 34px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.02);
+            transition: all 0.25s ease;
+            border: 0.5px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .search-inner {
             display: flex;
-            flex-direction: column;
-            gap: 10px;
+            align-items: center;
+            padding: 6px 8px 6px 16px;
+            gap: 8px;
+        }
+
+        .search-icon {
+            font-size: 20px;
+            color: #8e8e93;
+        }
+
+        .search-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 17px;
+            font-weight: 400;
+            padding: 12px 0;
+            outline: none;
+            color: #1c1c1e;
+            font-family: inherit;
+        }
+
+        .search-input::placeholder {
+            color: #8e8e93;
+            font-weight: 400;
+        }
+
+        .cancel-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #007aff;
+            font-weight: 500;
+            padding: 8px 8px 8px 4px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
             pointer-events: none;
         }
 
-        .custom-search {
-            width: 100%;
-            background: white;
-            border-radius: 48px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-            font-family: Arial, sans-serif;
+        .cancel-btn.visible {
+            opacity: 1;
             pointer-events: auto;
-            position: relative;
         }
 
-        .custom-search input {
-            width: 100%;
-            padding: 14px 20px;
-            font-size: 16px;
-            border: 1px solid #ddd;
-            border-radius: 48px;
-            outline: none;
-            box-sizing: border-box;
-            background: white;
-            transition: all 0.2s;
-        }
-
-        .custom-search input:focus {
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52,152,219,0.2);
-        }
-
-        .custom-search .results {
-            display: none;
+        /* Результаты поиска в стиле iOS */
+        .search-results-modern {
             position: absolute;
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            max-height: 380px;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 28px;
+            margin-top: 12px;
+            max-height: 65vh;
             overflow-y: auto;
-            z-index: 1001;
-            margin-top: 8px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            display: none;
+            scrollbar-width: thin;
+            border: 0.5px solid rgba(224, 224, 230, 0.6);
         }
 
-        .custom-search .results.active {
+        .search-results-modern.active {
             display: block;
         }
 
-        .custom-search .result-item {
-            padding: 12px 18px;
+        .result-item-modern {
+            padding: 16px 18px;
+            border-bottom: 0.5px solid #e9e9ef;
             cursor: pointer;
-            border-bottom: 1px solid #eee;
-            transition: background 0.15s;
+            transition: background 0.2s;
         }
 
-        .custom-search .result-item:hover {
-            background: #f0f7ff;
+        .result-item-modern:active {
+            background: #f2f2f6;
         }
 
-        .result-title {
-            font-weight: 600;
-            font-size: 14px;
-            color: #1a2a3a;
+        .result-title-modern {
+            font-weight: 590;
+            font-size: 16px;
+            color: #000;
+            letter-spacing: -0.3px;
         }
 
-        .result-address {
-            font-size: 11px;
-            color: #6c8a9e;
-            margin-top: 2px;
+        .result-address-modern {
+            font-size: 13px;
+            color: #6c6c70;
+            margin-top: 4px;
         }
 
-        .result-parking-stats {
-            font-size: 11px;
-            margin-top: 5px;
+        .parking-stats-modern {
+            margin-top: 10px;
             display: flex;
+            align-items: center;
+            gap: 12px;
             flex-wrap: wrap;
-            align-items: center;
-            gap: 8px;
         }
 
-        .free-spots-badge {
-            background: #2ecc71;
+        .free-badge {
+            background: #34c759;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 590;
             color: white;
-            padding: 2px 10px;
-            border-radius: 30px;
-            font-weight: bold;
-            font-size: 11px;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
+            letter-spacing: -0.2px;
         }
 
-        .free-spots-badge.low {
-            background: #e74c3c;
+        .free-badge.low {
+            background: #ff3b30;
         }
 
-        .free-spots-badge.medium {
-            background: #f39c12;
+        .free-badge.medium {
+            background: #ff9f0a;
         }
 
-        .nearby-info {
-            color: #2c6e9e;
-            font-size: 10px;
+        .nearby-tag {
+            background: #e9e9ef;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 13px;
+            color: #3a3a3e;
+            font-weight: 470;
         }
 
-        /* Панель маршрута (только кнопка) */
-        .route-panel-simple {
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(16px);
-            border-radius: 60px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-            pointer-events: auto;
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            width: auto;
-            align-self: center;
-            max-width: 90%;
-        }
-
-        .simple-panel-inner {
-            padding: 8px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .route-btn {
-            background: #ffcc00;
-            color: #1f2f38;
-            border: none;
-            padding: 10px 24px;
-            border-radius: 60px;
-            font-weight: bold;
-            font-size: 15px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: 0.2s;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            font-family: inherit;
-            text-decoration: none;
-            white-space: nowrap;
-        }
-
-        .route-btn:hover {
-            background: #e6b800;
-            transform: translateY(-1px);
-        }
-
-        /* Легенда */
-        .legend {
+        /* Кнопка маршрута — стиль Apple Maps */
+        .route-float-btn {
             position: absolute;
-            bottom: max(20px, env(safe-area-inset-bottom, 20px));
-            right: max(12px, env(safe-area-inset-right, 12px));
-            background: rgba(255,255,255,0.94);
-            backdrop-filter: blur(4px);
-            padding: 10px 14px;
-            border-radius: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-size: 10px;
-            z-index: 1000;
-            pointer-events: none;
-            border: 1px solid #ffffff80;
-            max-width: 160px;
+            bottom: max(28px, env(safe-area-inset-bottom, 28px));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1100;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(20px);
+            border-radius: 44px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            border: 0.5px solid rgba(255, 255, 255, 0.7);
         }
 
-        .legend h4 {
-            margin: 0 0 5px 0;
+        .route-action {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            font-size: 17px;
+            font-weight: 590;
+            color: #007aff;
+            font-family: inherit;
+            cursor: pointer;
+            letter-spacing: -0.2px;
+        }
+
+        .route-action:active {
+            transform: scale(0.97);
+        }
+
+        /* Легенда — минималистичный чип */
+        .legend-chip {
+            position: absolute;
+            bottom: max(100px, env(safe-area-inset-bottom, 100px));
+            right: max(14px, env(safe-area-inset-right, 14px));
+            z-index: 1050;
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(16px);
+            border-radius: 32px;
+            padding: 8px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            border: 0.5px solid rgba(0, 0, 0, 0.05);
+            pointer-events: none;
+        }
+
+        .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 20px;
+        }
+
+        .legend-text {
+            color: #2c2c2e;
             font-size: 11px;
         }
 
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 3px;
-            font-size: 9px;
-        }
-
-        .legend-color {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            margin-right: 6px;
-        }
-
-        .legend-cluster {
-            width: 18px;
-            height: 18px;
-            background: #3498db;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 6px;
-            color: white;
-            font-size: 8px;
-            font-weight: bold;
-        }
-
-        /* Маркер клика */
-        .click-marker {
-            width: 42px;
-            height: 42px;
-            background-color: #e74c3c;
+        /* Маркер клика — стильный пульс */
+        .click-marker-modern {
+            width: 48px;
+            height: 48px;
+            background: #007aff;
             border: 3px solid white;
             border-radius: 50%;
-            box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(0, 122, 255, 0.3);
             cursor: pointer;
-            transition: transform 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
+            font-size: 24px;
             color: white;
-            font-weight: bold;
+            transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
         }
 
-        .click-marker:hover {
-            transform: scale(1.12);
+        .click-marker-modern:active {
+            transform: scale(1.1);
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.28); opacity: 0.9; }
-            100% { transform: scale(1); opacity: 1; }
+        @keyframes modernPulse {
+            0% { transform: scale(1); opacity: 0.9; box-shadow: 0 0 0 0 rgba(0,122,255,0.7);}
+            70% { transform: scale(1.2); opacity: 0.6; box-shadow: 0 0 0 12px rgba(0,122,255,0);}
+            100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(0,122,255,0);}
         }
-        .click-marker.pulse {
-            animation: pulse 0.35s ease-in-out;
+        .pulse-modern {
+            animation: modernPulse 0.5s ease-out;
         }
 
-        @media (max-width: 650px) {
-            .top-combined-panel {
-                top: max(10px, env(safe-area-inset-top, 10px));
-                left: max(10px, env(safe-area-inset-left, 10px));
-                right: max(10px, env(safe-area-inset-right, 10px));
-                gap: 8px;
-            }
-            .custom-search input {
-                padding: 12px 16px;
-                font-size: 14px;
-            }
-            .simple-panel-inner {
-                padding: 6px 16px;
-            }
-            .route-btn {
-                padding: 8px 20px;
-                font-size: 14px;
-            }
-            .legend {
-                bottom: max(15px, env(safe-area-inset-bottom, 15px));
-                right: 10px;
-                padding: 8px 12px;
-                max-width: 140px;
-            }
+        /* Стили для кластеров и маркеров (динамические) */
+        .cluster-modern {
+            background: #007aff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 15px;
+            border: 2px solid white;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.2);
+            transition: transform 0.1s ease;
         }
-        
-        @media (max-width: 380px) {
-            .route-btn {
-                padding: 6px 16px;
-                font-size: 12px;
+
+        .parking-marker {
+            font-weight: 600;
+            font-size: 13px;
+            border: 2px solid white;
+            transition: transform 0.1s;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        /* Сообщение подсказка */
+        .toast-tip {
+            position: absolute;
+            bottom: 100px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(12px);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            text-align: center;
+            z-index: 1050;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+
+        @media (max-width: 500px) {
+            .search-card {
+                top: 12px;
+                left: 12px;
+                right: 12px;
             }
-            .legend {
-                display: none;
+            .route-action {
+                padding: 10px 22px;
+                font-size: 16px;
+            }
+            .legend-chip {
+                bottom: 90px;
+                right: 12px;
+                padding: 6px 12px;
             }
         }
     </style>
 </head>
 <body>
-
 <div class="map-container">
     <div id="map"></div>
-    
-    <div class="top-combined-panel">
-        <div class="custom-search">
-            <input type="text" id="search-input" placeholder="🔍 Search for parking or address...">
-            <div class="results" id="search-results"></div>
+
+    <!-- Мобильная панель поиска -->
+    <div class="search-card" id="searchCard">
+        <div class="search-inner">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInputModern" class="search-input" placeholder="Search for parking or place..." autocomplete="off">
+            <button id="cancelSearchBtn" class="cancel-btn">Cancel</button>
         </div>
-        
-        <div class="route-panel-simple" id="routePanelSimple">
-            <div class="simple-panel-inner">
-                <a href="#" id="dynamicRouteBtn" class="route-btn" target="_blank" rel="noopener noreferrer">
-                    🚗 Yandex Maps
-                </a>
-            </div>
-        </div>
+        <div id="modernSearchResults" class="search-results-modern"></div>
     </div>
-    
-    <div class="legend">
-        <h4>🚗 Parking</h4>
-        <div class="legend-item"><div class="legend-color" style="background:#2ecc71;"></div><span>Free >40%</span></div>
-        <div class="legend-item"><div class="legend-color" style="background:#f39c12;"></div><span>15-40%</span></div>
-        <div class="legend-item"><div class="legend-color" style="background:#e74c3c;"></div><span>&lt;15%</span></div>
-        <div class="legend-item"><div class="legend-cluster">12</div><span>Cluster</span></div>
+
+    <!-- Кнопка построения маршрута (плавающая снизу) -->
+    <div class="route-float-btn" id="routeFloatBtn">
+        <button id="dynamicRouteModernBtn" class="route-action">
+            🧭 Navigate
+        </button>
     </div>
+
+    <!-- Легенда стильная -->
+    <div class="legend-chip">
+        <div class="legend-row"><div class="legend-dot" style="background: #34c759;"></div><span class="legend-text">Free >40%</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background: #ff9f0a;"></div><span class="legend-text">15–40%</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background: #ff3b30;"></div><span class="legend-text">&lt;15%</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background: #007aff;"></div><span class="legend-text">Cluster</span></div>
+    </div>
+    <div id="toastMsg" class="toast-tip"></div>
 </div>
 
 <script src="https://api-maps.yandex.ru/v3/?apikey=bb36a041-64be-4fd6-b306-a246fe863173&lang=en_US"></script>
 
 <script>
-    (async function initMapApp() {
-        try {
-            if (typeof ymaps3 === 'undefined') throw new Error('Yandex Maps API failed to load');
-            await ymaps3.ready;
-            
-            const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker, YMapListener } = ymaps3;
-            const { YMapClusterer, clusterByGrid } = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
-            
-            const map = new YMap(document.getElementById('map'), {
-                location: { center: [30.315868, 59.938732], zoom: 13 }
-            });
-            map.addChild(new YMapDefaultSchemeLayer());
-            map.addChild(new YMapDefaultFeaturesLayer());
-            
-            // ========== ДАННЫЕ ПАРКОВОК ==========
-            const parkings = [
-                { lat: 59.938732, lon: 30.315868, name: "Palace Square", free: 23, total: 50, address: "Palace Sq., 1" },
-                { lat: 59.935101, lon: 30.324104, name: "Nevsky Prospekt 30", free: 5, total: 30, address: "Nevsky Ave., 30" },
-                { lat: 59.934280, lon: 30.306633, name: "St. Isaac's Cathedral", free: 12, total: 40, address: "Isaac's Sq., 4" },
-                { lat: 59.932800, lon: 30.295700, name: "Mariinsky Theatre", free: 8, total: 25, address: "Theatre Sq., 1" },
-                { lat: 59.944700, lon: 30.323700, name: "Summer Garden", free: 18, total: 35, address: "Kutuzov Emb., 2" },
-                { lat: 59.956800, lon: 30.308300, name: "Petrograd Embankment", free: 42, total: 80, address: "Petrograd Emb., 20" },
-                { lat: 59.961200, lon: 30.300500, name: "Kronverksky Ave", free: 3, total: 15, address: "Kronverksky Ave., 49" },
-                { lat: 59.959500, lon: 30.319000, name: "Kamenny Island Ave", free: 28, total: 60, address: "Kamenny Island Ave., 35" },
-                { lat: 59.942500, lon: 30.282200, name: "Vasileostrovsky Market", free: 14, total: 45, address: "Bolshoy Ave. V.O., 16" },
-                { lat: 59.940300, lon: 30.275800, name: "Makarov Embankment", free: 7, total: 25, address: "Makarov Emb., 2" },
-                { lat: 59.945100, lon: 30.270600, name: "Sea Port", free: 55, total: 120, address: "Maritime Glory Sq., 1" },
-                { lat: 59.922100, lon: 30.319400, name: "Moscow Station", free: 19, total: 55, address: "Uprising Sq., 2" },
-                { lat: 59.900800, lon: 30.329700, name: "Victory Park", free: 32, total: 70, address: "Moskovsky Ave., 188" },
-                { lat: 59.895500, lon: 30.335600, name: "Elektrosila", free: 11, total: 35, address: "Moskovsky Ave., 139" },
-                { lat: 59.928500, lon: 30.342900, name: "Tauride Garden", free: 21, total: 40, address: "Tchaikovsky St., 50" },
-                { lat: 59.924400, lon: 30.351200, name: "Smolny Cathedral", free: 16, total: 45, address: "Proletarian Dictatorship Sq., 1" },
-                { lat: 59.914500, lon: 30.295800, name: "Institute of Technology", free: 4, total: 20, address: "Moskovsky Ave., 26" },
-                { lat: 59.927800, lon: 30.262200, name: "Mining University", free: 27, total: 55, address: "21st Line V.O., 2" },
-                { lat: 59.950300, lon: 30.241700, name: "Primorsky Victory Park", free: 45, total: 100, address: "Krestovsky Ave., 23" },
-                { lat: 59.953200, lon: 30.220600, name: "Gazprom Arena Stadium", free: 380, total: 800, address: "Football Alley, 1" },
-                { lat: 59.969500, lon: 30.344500, name: "Piskaryovsky Ave", free: 38, total: 90, address: "Piskaryovsky Ave., 25" },
-                { lat: 59.886600, lon: 30.319700, name: "Kupchino", free: 52, total: 110, address: "Malaya Balkanskaya St., 23" },
-                { lat: 59.864100, lon: 30.265300, name: "Zvezdnaya", free: 31, total: 75, address: "Dunaisky Ave., 48" },
-                { lat: 59.979200, lon: 30.265600, name: "Ozerki", free: 25, total: 60, address: "Vyborgskoye Sh., 23" }
-            ];
-            
-            // Функция для подсчета свободных мест в радиусе (метров)
-            function countFreeSpotsInRadius(lat, lon, radiusMeters = 300) {
-                let totalFree = 0;
-                const R = 6371000; // радиус Земли в метрах
-                
-                parkings.forEach(p => {
-                    // вычисление расстояния по формуле гаверсинуса
-                    const φ1 = lat * Math.PI / 180;
-                    const φ2 = p.lat * Math.PI / 180;
-                    const Δφ = (p.lat - lat) * Math.PI / 180;
-                    const Δλ = (p.lon - lon) * Math.PI / 180;
-                    
-                    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                              Math.cos(φ1) * Math.cos(φ2) *
-                              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    const distance = R * c;
-                    
-                    if (distance <= radiusMeters) {
-                        totalFree += p.free;
-                    }
-                });
-                return totalFree;
-            }
-            
-            function getColorByOccupancy(free, total) {
-                if (total === 0) return '#95a5a6';
-                let percent = (free / total) * 100;
-                if (percent > 40) return '#2ecc71';
-                if (percent > 15) return '#f39c12';
-                return '#e74c3c';
-            }
-            
-            const features = parkings.map((p, idx) => ({
-                type: 'Feature',
-                id: idx,
-                geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-                properties: {
-                    name: p.name,
-                    free: p.free,
-                    total: p.total,
-                    address: p.address,
-                    lat: p.lat,
-                    lon: p.lon
-                }
-            }));
-            
-            // ========== МАРКЕР ПОСЛЕДНЕГО КЛИКА ==========
-            let currentClickMarker = null;
-            
-            function removeClickMarker() {
-                if (currentClickMarker) {
-                    map.removeChild(currentClickMarker);
-                    currentClickMarker = null;
-                }
-            }
-            
-            function createClickMarkerElement() {
-                const div = document.createElement('div');
-                div.className = 'click-marker';
-                div.textContent = '📍';
-                return div;
-            }
-            
-            function updateRouteButton(lat, lon) {
-                const routeBtn = document.getElementById('dynamicRouteBtn');
-                if (routeBtn && lat && lon) {
-                    const mapsUrl = `https://yandex.ru/maps/?rtext=~${lat},${lon}&rtt=auto`;
-                    routeBtn.href = mapsUrl;
-                } else if (routeBtn) {
-                    routeBtn.href = `https://yandex.ru/maps/`;
-                }
-            }
-            
-            function setSelectedPoint(lat, lon, name, extraDetails = "") {
-                removeClickMarker();
-                
-                const markerEl = createClickMarkerElement();
-                const newMarker = new YMapMarker({ coordinates: [lon, lat] }, markerEl);
-                map.addChild(newMarker);
-                currentClickMarker = newMarker;
-                
-                markerEl.classList.add('pulse');
-                setTimeout(() => markerEl.classList.remove('pulse'), 400);
-                
-                updateRouteButton(lat, lon);
-                
-                markerEl.onclick = (e) => {
-                    e.stopPropagation();
-                    updateRouteButton(lat, lon);
-                    markerEl.classList.add('pulse');
-                    setTimeout(() => markerEl.classList.remove('pulse'), 300);
-                };
-            }
-            
-            // ========== СЛУШАТЕЛЬ КЛИКА ПО КАРТЕ ==========
-            const mapListener = new YMapListener({
-                layer: 'any',
-                onClick: (layer, coordinates, object) => {
-                    if (coordinates && coordinates.length === 2) {
-                        const lon = coordinates[0];
-                        const lat = coordinates[1];
-                        setSelectedPoint(lat, lon, "Point on map", "");
-                    }
-                }
-            });
-            map.addChild(mapListener);
-            
-            // ========== КЛАСТЕРИЗАЦИЯ ==========
-            const createMarker = (feature) => {
-                const props = feature.properties;
-                const color = getColorByOccupancy(props.free, props.total);
-                const div = document.createElement('div');
-                div.textContent = props.free;
-                div.style.cssText = `
-                    background-color: ${color};
-                    width: 34px; height: 34px; border-radius: 50%;
-                    display: flex; justify-content: center; align-items: center;
-                    color: white; font-weight: bold; font-size: 13px;
-                    font-family: Arial; border: 2px solid white;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-                    cursor: pointer; transition: transform 0.1s;
-                `;
-                div.onmouseenter = () => div.style.transform = 'scale(1.08)';
-                div.onmouseleave = () => div.style.transform = 'scale(1)';
-                div.onclick = (e) => {
-                    e.stopPropagation();
-                    setSelectedPoint(props.lat, props.lon, props.name, "");
-                };
-                return new YMapMarker({ coordinates: feature.geometry.coordinates }, div);
-            };
-            
-            const createCluster = (coordinates, featuresList) => {
-                const count = featuresList.length;
-                let totalFree = 0, totalSpots = 0;
-                featuresList.forEach(f => {
-                    totalFree += f.properties.free;
-                    totalSpots += f.properties.total;
-                });
-                const avgPercent = totalSpots > 0 ? Math.round((totalFree / totalSpots) * 100) : 0;
-                const clusterDiv = document.createElement('div');
-                clusterDiv.style.cssText = `
-                    background-color: #3498db; width: 44px; height: 44px; border-radius: 50%;
-                    display: flex; flex-direction: column; align-items: center; justify-content: center;
-                    color: white; font-weight: bold; border: 2px solid white;
-                    box-shadow: 0 3px 8px rgba(0,0,0,0.3); cursor: pointer;
-                `;
-                const spanCount = document.createElement('span');
-                spanCount.textContent = count;
-                spanCount.style.fontSize = '16px';
-                const spanPercent = document.createElement('span');
-                spanPercent.textContent = `${avgPercent}%`;
-                spanPercent.style.fontSize = '9px';
-                clusterDiv.appendChild(spanCount);
-                clusterDiv.appendChild(spanPercent);
-                clusterDiv.onclick = (e) => {
-                    e.stopPropagation();
-                    const clusterCenterLon = coordinates[0];
-                    const clusterCenterLat = coordinates[1];
-                    setSelectedPoint(clusterCenterLat, clusterCenterLon, `Cluster (${count} parkings)`, "");
-                    map.setLocation({ center: [clusterCenterLon, clusterCenterLat], zoom: 15, duration: 400 });
-                };
-                return new YMapMarker({ coordinates: coordinates }, clusterDiv);
-            };
-            
-            const clusterer = new YMapClusterer({
-                features: features,
-                method: clusterByGrid({ gridSize: 68 }),
-                marker: createMarker,
-                cluster: createCluster
-            });
-            map.addChild(clusterer);
-            
-            // ========== ПОИСК С ПОДСЧЕТОМ СВОБОДНЫХ МЕСТ В РАДИУСЕ ==========
-            const searchInput = document.getElementById('search-input');
-            const resultsContainer = document.getElementById('search-results');
-            
-            function escapeHtml(str) {
-                if (!str) return '';
-                return str.replace(/[&<>]/g, function(m) {
-                    if (m === '&') return '&amp;';
-                    if (m === '<') return '&lt;';
-                    if (m === '>') return '&gt;';
-                    return m;
-                });
-            }
-            
-            async function performSearch(query) {
-                if (!query || query.length < 2) {
-                    resultsContainer.classList.remove('active');
-                    return;
-                }
-                try {
-                    const apiKey = '8fc5e4ba-8ce3-4230-8529-4898346c54ab';
-                    const url = `https://geocode-maps.yandex.ru/1.x/?apikey=${apiKey}&geocode=${encodeURIComponent(query)}&format=json&results=8`;
-                    const resp = await fetch(url);
-                    const data = await resp.json();
-                    const members = data.response.GeoObjectCollection.featureMember;
-                    
-                    if (members && members.length) {
-                        resultsContainer.innerHTML = '';
-                        
-                        // Для каждого результата считаем свободные места в радиусе 300м
-                        for (const member of members) {
-                            const geo = member.GeoObject;
-                            const name = geo.name;
-                            const address = geo.metaDataProperty.GeocoderMetaData.text;
-                            const point = geo.Point.pos.split(' ').map(Number);
-                            const lon = point[0], lat = point[1];
-                            
-                            // Подсчет свободных мест в радиусе 300 метров
-                            const freeSpots = countFreeSpotsInRadius(lat, lon, 300);
-                            
-                            const item = document.createElement('div');
-                            item.className = 'result-item';
-                            
-                            // Определяем класс для бейджа в зависимости от количества мест
-                            let badgeClass = 'free-spots-badge';
-                            let badgeEmoji = '🅿️';
-                            if (freeSpots === 0) {
-                                badgeClass += ' low';
-                                badgeEmoji = '⚠️';
-                            } else if (freeSpots < 10) {
-                                badgeClass += ' medium';
-                            }
-                            
-                            const parkingInfoHtml = `
-                                <div class="result-parking-stats">
-                                    <span class="${badgeClass}">
-                                        ${badgeEmoji} ${freeSpots} free spots
-                                    </span>
-                                    <span class="nearby-info">📍 within 300m</span>
-                                </div>
-                            `;
-                            
-                            item.innerHTML = `
-                                <div class="result-title">${escapeHtml(name)}</div>
-                                <div class="result-address">${escapeHtml(address.substring(0, 80))}</div>
-                                ${parkingInfoHtml}
-                            `;
-                            
-                            item.onclick = () => {
-                                map.setLocation({ center: [lon, lat], zoom: 16, duration: 400 });
-                                setSelectedPoint(lat, lon, name, "");
-                                resultsContainer.classList.remove('active');
-                                searchInput.value = name;
-                            };
-                            resultsContainer.appendChild(item);
-                        }
-                        resultsContainer.classList.add('active');
-                    } else {
-                        resultsContainer.innerHTML = '<div class="result-item">No results found</div>';
-                        resultsContainer.classList.add('active');
-                    }
-                } catch(e) {
-                    console.warn(e);
-                    resultsContainer.innerHTML = '<div class="result-item">Search error</div>';
-                    resultsContainer.classList.add('active');
-                }
-            }
-            
-            let debounce;
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(debounce);
-                debounce = setTimeout(() => performSearch(e.target.value), 400);
-            });
-            
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    clearTimeout(debounce);
-                    performSearch(searchInput.value);
-                }
-            });
-            
-            document.addEventListener('click', (e) => {
-                if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
-                    resultsContainer.classList.remove('active');
-                }
-            });
-            
-            const defaultBtn = document.getElementById('dynamicRouteBtn');
-            if (defaultBtn) {
-                defaultBtn.href = 'https://yandex.ru/maps/';
-            }
-            
-            console.log("✅ Search with nearby free spots (300m radius) ready!");
-        } catch (err) {
-            console.error(err);
-            document.getElementById('map').innerHTML = `<div style="padding:40px;background:white;margin:20px;border-radius:20px;">❌ Error: ${err.message}<br>Check API key</div>`;
+    (async function initModernApp() {
+        if (typeof ymaps3 === 'undefined') {
+            document.getElementById('map').innerHTML = '<div style="padding:20px;">Error loading maps</div>';
+            return;
         }
+        await ymaps3.ready;
+        const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker, YMapListener } = ymaps3;
+        const { YMapClusterer, clusterByGrid } = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
+
+        const map = new YMap(document.getElementById('map'), {
+            location: { center: [30.315868, 59.938732], zoom: 13 },
+            behaviors: ['drag', 'scrollZoom', 'pinchZoom', 'rightMouseButtonMagnifier']
+        });
+        map.addChild(new YMapDefaultSchemeLayer());
+        map.addChild(new YMapDefaultFeaturesLayer());
+
+        // ---- Парковки (реальные данные) ----
+        const parkings = [
+            { lat: 59.938732, lon: 30.315868, name: "Palace Square", free: 23, total: 50, address: "Palace Sq., 1" },
+            { lat: 59.935101, lon: 30.324104, name: "Nevsky Prospekt 30", free: 5, total: 30, address: "Nevsky Ave., 30" },
+            { lat: 59.934280, lon: 30.306633, name: "St. Isaac's Cathedral", free: 12, total: 40, address: "Isaac's Sq., 4" },
+            { lat: 59.932800, lon: 30.295700, name: "Mariinsky Theatre", free: 8, total: 25, address: "Theatre Sq., 1" },
+            { lat: 59.944700, lon: 30.323700, name: "Summer Garden", free: 18, total: 35, address: "Kutuzov Emb., 2" },
+            { lat: 59.956800, lon: 30.308300, name: "Petrograd Embankment", free: 42, total: 80, address: "Petrograd Emb., 20" },
+            { lat: 59.961200, lon: 30.300500, name: "Kronverksky Ave", free: 3, total: 15, address: "Kronverksky Ave., 49" },
+            { lat: 59.959500, lon: 30.319000, name: "Kamenny Island Ave", free: 28, total: 60, address: "Kamenny Island Ave., 35" },
+            { lat: 59.942500, lon: 30.282200, name: "Vasileostrovsky Market", free: 14, total: 45, address: "Bolshoy Ave. V.O., 16" },
+            { lat: 59.940300, lon: 30.275800, name: "Makarov Embankment", free: 7, total: 25, address: "Makarov Emb., 2" },
+            { lat: 59.945100, lon: 30.270600, name: "Sea Port", free: 55, total: 120, address: "Maritime Glory Sq., 1" },
+            { lat: 59.922100, lon: 30.319400, name: "Moscow Station", free: 19, total: 55, address: "Uprising Sq., 2" },
+            { lat: 59.900800, lon: 30.329700, name: "Victory Park", free: 32, total: 70, address: "Moskovsky Ave., 188" },
+            { lat: 59.895500, lon: 30.335600, name: "Elektrosila", free: 11, total: 35, address: "Moskovsky Ave., 139" },
+            { lat: 59.928500, lon: 30.342900, name: "Tauride Garden", free: 21, total: 40, address: "Tchaikovsky St., 50" },
+            { lat: 59.924400, lon: 30.351200, name: "Smolny Cathedral", free: 16, total: 45, address: "Proletarian Dictatorship Sq., 1" },
+            { lat: 59.914500, lon: 30.295800, name: "Institute of Technology", free: 4, total: 20, address: "Moskovsky Ave., 26" },
+            { lat: 59.927800, lon: 30.262200, name: "Mining University", free: 27, total: 55, address: "21st Line V.O., 2" },
+            { lat: 59.950300, lon: 30.241700, name: "Primorsky Victory Park", free: 45, total: 100, address: "Krestovsky Ave., 23" },
+            { lat: 59.953200, lon: 30.220600, name: "Gazprom Arena Stadium", free: 380, total: 800, address: "Football Alley, 1" },
+            { lat: 59.969500, lon: 30.344500, name: "Piskaryovsky Ave", free: 38, total: 90, address: "Piskaryovsky Ave., 25" },
+            { lat: 59.886600, lon: 30.319700, name: "Kupchino", free: 52, total: 110, address: "Malaya Balkanskaya St., 23" },
+            { lat: 59.864100, lon: 30.265300, name: "Zvezdnaya", free: 31, total: 75, address: "Dunaisky Ave., 48" },
+            { lat: 59.979200, lon: 30.265600, name: "Ozerki", free: 25, total: 60, address: "Vyborgskoye Sh., 23" }
+        ];
+
+        function getMarkerColor(free, total) {
+            if (total === 0) return '#8e8e93';
+            const percent = (free / total) * 100;
+            if (percent > 40) return '#34c759';
+            if (percent > 15) return '#ff9f0a';
+            return '#ff3b30';
+        }
+
+        function countFreeSpotsInRadius(lat, lon, radiusMeters = 300) {
+            let totalFree = 0;
+            const R = 6371000;
+            parkings.forEach(p => {
+                const φ1 = lat * Math.PI / 180;
+                const φ2 = p.lat * Math.PI / 180;
+                const Δφ = (p.lat - lat) * Math.PI / 180;
+                const Δλ = (p.lon - lon) * Math.PI / 180;
+                const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const dist = R * c;
+                if (dist <= radiusMeters) totalFree += p.free;
+            });
+            return totalFree;
+        }
+
+        const features = parkings.map((p, idx) => ({
+            type: 'Feature',
+            id: idx,
+            geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+            properties: { name: p.name, free: p.free, total: p.total, address: p.address, lat: p.lat, lon: p.lon }
+        }));
+
+        // ---- маркер выбранной точки ----
+        let currentClickMarker = null;
+        let currentSelectedLat = null;
+        let currentSelectedLon = null;
+
+        function removeClickMarker() {
+            if (currentClickMarker) {
+                map.removeChild(currentClickMarker);
+                currentClickMarker = null;
+            }
+        }
+
+        function createModernMarkerElement() {
+            const div = document.createElement('div');
+            div.className = 'click-marker-modern';
+            div.innerHTML = '📍';
+            return div;
+        }
+
+        function updateRouteLink(lat, lon) {
+            const routeBtn = document.getElementById('dynamicRouteModernBtn');
+            if (routeBtn && lat && lon) {
+                routeBtn.onclick = (e) => {
+                    e.preventDefault();
+                    const url = `https://yandex.ru/maps/?rtext=~${lat},${lon}&rtt=auto`;
+                    window.open(url, '_blank');
+                };
+            }
+        }
+
+        function showToast(msg, duration = 1800) {
+            const toast = document.getElementById('toastMsg');
+            toast.textContent = msg;
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, duration);
+        }
+
+        function setSelectedPoint(lat, lon, name) {
+            removeClickMarker();
+            const markerEl = createModernMarkerElement();
+            const newMarker = new YMapMarker({ coordinates: [lon, lat] }, markerEl);
+            map.addChild(newMarker);
+            currentClickMarker = newMarker;
+            currentSelectedLat = lat;
+            currentSelectedLon = lon;
+            markerEl.classList.add('pulse-modern');
+            setTimeout(() => markerEl.classList.remove('pulse-modern'), 500);
+            updateRouteLink(lat, lon);
+            markerEl.onclick = () => {
+                updateRouteLink(lat, lon);
+                markerEl.classList.add('pulse-modern');
+                setTimeout(() => markerEl.classList.remove('pulse-modern'), 300);
+                showToast(`📍 ${name} · tap Navigate`, 1200);
+            };
+            showToast(`📍 Selected: ${name}`, 1000);
+        }
+
+        // Слушатель клика по карте
+        const mapListener = new YMapListener({
+            layer: 'any',
+            onClick: (layer, coords) => {
+                if (coords && coords.length === 2) {
+                    setSelectedPoint(coords[1], coords[0], "Dropped pin");
+                }
+            }
+        });
+        map.addChild(mapListener);
+
+        // --- Кластеризация с modern видом ---
+        const createMarkerModern = (feature) => {
+            const props = feature.properties;
+            const color = getMarkerColor(props.free, props.total);
+            const div = document.createElement('div');
+            div.className = 'parking-marker';
+            div.textContent = props.free;
+            div.style.cssText = `
+                background: ${color}; width: 36px; height: 36px; border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
+                color: white; font-weight: 600; font-size: 14px;
+                border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                cursor: pointer; font-family: -apple-system;
+            `;
+            div.onclick = (e) => {
+                e.stopPropagation();
+                setSelectedPoint(props.lat, props.lon, props.name);
+                map.setLocation({ center: [props.lon, props.lat], zoom: 16, duration: 300 });
+            };
+            return new YMapMarker({ coordinates: feature.geometry.coordinates }, div);
+        };
+
+        const createClusterModern = (coordinates, featuresList) => {
+            const count = featuresList.length;
+            let totalFree = 0, totalSpots = 0;
+            featuresList.forEach(f => {
+                totalFree += f.properties.free;
+                totalSpots += f.properties.total;
+            });
+            const avgPercent = totalSpots > 0 ? Math.round((totalFree / totalSpots) * 100) : 0;
+            const div = document.createElement('div');
+            div.className = 'cluster-modern';
+            div.style.width = '46px';
+            div.style.height = '46px';
+            div.style.background = '#007aff';
+            div.style.flexDirection = 'column';
+            div.innerHTML = `<span style="font-size:16px;font-weight:700;">${count}</span><span style="font-size:9px;">${avgPercent}%</span>`;
+            div.onclick = (e) => {
+                e.stopPropagation();
+                setSelectedPoint(coordinates[1], coordinates[0], `Cluster · ${count} spots`);
+                map.setLocation({ center: [coordinates[0], coordinates[1]], zoom: 15, duration: 400 });
+            };
+            return new YMapMarker({ coordinates }, div);
+        };
+
+        const clusterer = new YMapClusterer({
+            features: features,
+            method: clusterByGrid({ gridSize: 70 }),
+            marker: createMarkerModern,
+            cluster: createClusterModern
+        });
+        map.addChild(clusterer);
+
+        // --- Поиск с радиусом 300m ---
+        const searchInputModern = document.getElementById('searchInputModern');
+        const resultsModern = document.getElementById('modernSearchResults');
+        const cancelBtn = document.getElementById('cancelSearchBtn');
+
+        function hideResults() {
+            resultsModern.classList.remove('active');
+        }
+
+        cancelBtn.addEventListener('click', () => {
+            searchInputModern.value = '';
+            hideResults();
+            cancelBtn.classList.remove('visible');
+            searchInputModern.blur();
+        });
+
+        searchInputModern.addEventListener('focus', () => {
+            if (searchInputModern.value.length > 1) cancelBtn.classList.add('visible');
+        });
+
+        async function performModernSearch(query) {
+            if (!query || query.length < 2) {
+                hideResults();
+                cancelBtn.classList.remove('visible');
+                return;
+            }
+            cancelBtn.classList.add('visible');
+            try {
+                const geoApiKey = '8fc5e4ba-8ce3-4230-8529-4898346c54ab';
+                const url = `https://geocode-maps.yandex.ru/1.x/?apikey=${geoApiKey}&geocode=${encodeURIComponent(query)}&format=json&results=6`;
+                const resp = await fetch(url);
+                const data = await resp.json();
+                const members = data.response.GeoObjectCollection.featureMember;
+                if (members && members.length) {
+                    resultsModern.innerHTML = '';
+                    for (const member of members) {
+                        const geo = member.GeoObject;
+                        const name = geo.name;
+                        const address = geo.metaDataProperty.GeocoderMetaData.text;
+                        const point = geo.Point.pos.split(' ').map(Number);
+                        const lon = point[0], lat = point[1];
+                        const freeNearby = countFreeSpotsInRadius(lat, lon, 300);
+                        let badgeClass = 'free-badge';
+                        let emoji = '🅿️';
+                        if (freeNearby === 0) { badgeClass += ' low'; emoji = '⚠️'; }
+                        else if (freeNearby < 10) badgeClass += ' medium';
+                        
+                        const item = document.createElement('div');
+                        item.className = 'result-item-modern';
+                        item.innerHTML = `
+                            <div class="result-title-modern">${escapeHtml(name)}</div>
+                            <div class="result-address-modern">${escapeHtml(address.substring(0, 70))}</div>
+                            <div class="parking-stats-modern">
+                                <span class="${badgeClass}">${emoji} ${freeNearby} free spots</span>
+                                <span class="nearby-tag">📍 within 300m</span>
+                            </div>
+                        `;
+                        item.onclick = () => {
+                            map.setLocation({ center: [lon, lat], zoom: 16, duration: 400 });
+                            setSelectedPoint(lat, lon, name);
+                            searchInputModern.value = name;
+                            hideResults();
+                            cancelBtn.classList.remove('visible');
+                        };
+                        resultsModern.appendChild(item);
+                    }
+                    resultsModern.classList.add('active');
+                } else {
+                    resultsModern.innerHTML = '<div class="result-item-modern">No places found</div>';
+                    resultsModern.classList.add('active');
+                }
+            } catch(e) {
+                console.warn(e);
+                resultsModern.innerHTML = '<div class="result-item-modern">Search error</div>';
+                resultsModern.classList.add('active');
+            }
+        }
+
+        let debounceTimer;
+        searchInputModern.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => performModernSearch(e.target.value), 400);
+        });
+        document.addEventListener('click', (e) => {
+            if (!searchInputModern.contains(e.target) && !resultsModern.contains(e.target)) hideResults();
+        });
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+        }
+
+        // Установка дефолтной навигации (если ничего не выбрано — центр)
+        const defaultRouteBtn = document.getElementById('dynamicRouteModernBtn');
+        defaultRouteBtn.onclick = (e) => {
+            e.preventDefault();
+            if (currentSelectedLat && currentSelectedLon) {
+                window.open(`https://yandex.ru/maps/?rtext=~${currentSelectedLat},${currentSelectedLon}&rtt=auto`, '_blank');
+            } else {
+                window.open('https://yandex.ru/maps/', '_blank');
+            }
+        };
+        console.log("✅ Modern mobile UI ready");
     })();
 </script>
 </body>
