@@ -1,4 +1,4 @@
-# main.py - исправленная версия
+# main.py - мобильная версия с упрощенной верхней панелью
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -52,47 +52,7 @@ BASE_PARKINGS = [
 # Текущие данные парковок с динамическими свободными местами
 active_parkings: List[Dict[str, Any]] = []
 
-# def update_parking_state():
-#     """Фоновая функция для симуляции динамического обновления свободных мест"""
-#     global active_parkings
-    
-#     # Инициализация начальными случайными значениями
-#     for p in BASE_PARKINGS:
-#         free = random.randint(0, p["total"])
-#         active_parkings.append({
-#             **p,
-#             "free": free,
-#             "last_update": datetime.now().isoformat()
-#         })
-    
-#     # Цикл обновления данных
-#     while True:
-#         time.sleep(3)  # Обновляем каждые 3 секунды
-        
-#         for i, p in enumerate(active_parkings):
-#             # Случайное изменение: от -3 до +3 мест
-#             change = random.randint(-3, 3)
-#             new_free = p["free"] + change
-#             new_free = max(0, min(p["total"], new_free))
-            
-#             # Иногда добавляем более заметные изменения
-#             if random.random() < 0.1:  # 10% шанс на событие
-#                 big_change = random.randint(-8, 8)
-#                 new_free = max(0, min(p["total"], new_free + big_change))
-            
-#             active_parkings[i] = {
-#                 **p,
-#                 "free": new_free,
-#                 "last_update": datetime.now().isoformat()
-#             }
-        
-#         print(f"🔄 Parking state updated at {datetime.now().strftime('%H:%M:%S')}")
-
-# # Запускаем фоновый поток для обновления состояния
-# background_thread = threading.Thread(target=update_parking_state, daemon=True)
-# background_thread.start()
-
-# Асинхронный апдейтер вместо threading
+# Асинхронный апдейтер
 async def background_updater():
     global active_parkings
     while True:
@@ -107,26 +67,17 @@ async def background_updater():
 
 @app.on_event("startup")
 async def startup_event():
-    # Инициализация
     for p in BASE_PARKINGS:
         active_parkings.append({**p, "free": random.randint(0, p["total"]), "last_update": datetime.now().isoformat()})
     asyncio.create_task(background_updater())
     print("✅ Service started on Render!")
 
-# @app.on_event("startup")
-# async def startup_event():
-#     print("✅ Dynamic parking service started!")
-#     print("📊 State updates every 3 seconds")
-#     print("📍 Client will fetch every 10 seconds")
-
 @app.get("/", response_class=HTMLResponse)
 async def get_map():
-    """Главная страница с картой парковок (вся логика на клиенте)"""
     return generate_html_page()
 
 @app.get("/api/parkings")
 async def get_parkings():
-    """Получить актуальные данные всех парковок (динамически обновляемые)"""
     return JSONResponse(content={
         "parkings": active_parkings,
         "timestamp": datetime.now().isoformat(),
@@ -135,758 +86,1000 @@ async def get_parkings():
 
 @app.get("/api/parking/{parking_id}")
 async def get_parking(parking_id: int):
-    """Получить данные конкретной парковки"""
     parking = next((p for p in active_parkings if p["id"] == parking_id), None)
     if not parking:
         raise HTTPException(status_code=404, detail="Parking not found")
     return JSONResponse(content=parking)
 
 def generate_html_page() -> str:
-    """Генерирует HTML страницу с картой, которая забирает данные по API каждые 10 секунд"""
-    
     html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Dynamic Parking Map - Real-time Updates</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover, maximum-scale=1.0">
+    <title>Parking Finder</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            font-family: 'Segoe UI', 'Arial', sans-serif;
-            background: #e9f0f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f2f5f9;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
+            width: 100vw;
             overflow: hidden;
-            padding: 0;
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
+            touch-action: none;
         }
 
-        .map-container {
-            flex: 1;
-            position: relative;
-            background: #cbdde6;
-            min-height: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        #map {
-            height: 100%;
-            width: 100%;
-        }
-
-        .top-combined-panel {
+        /* ===== ВЕРХНЯЯ ПАНЕЛЬ ===== */
+        .app-header {
             position: absolute;
-            top: max(12px, env(safe-area-inset-top, 12px));
-            left: max(12px, env(safe-area-inset-left, 12px));
-            right: max(12px, env(safe-area-inset-right, 12px));
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            pointer-events: none;
-        }
-
-        .custom-search {
-            width: 100%;
-            background: white;
-            border-radius: 48px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-            pointer-events: auto;
-            position: relative;
-        }
-
-        .custom-search input {
-            width: 100%;
-            padding: 14px 20px;
-            font-size: 16px;
-            border: 1px solid #ddd;
-            border-radius: 48px;
-            outline: none;
-            background: white;
-            transition: all 0.2s;
-        }
-
-        .custom-search input:focus {
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52,152,219,0.2);
-        }
-
-        .custom-search .results {
-            display: none;
-            position: absolute;
-            top: 100%;
+            top: 0;
             left: 0;
             right: 0;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            max-height: 380px;
-            overflow-y: auto;
-            z-index: 1001;
-            margin-top: 8px;
+            z-index: 1000;
+            background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.92) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: max(8px, env(safe-area-inset-top, 8px)) 12px 10px 12px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+            border-bottom: 1px solid rgba(0,0,0,0.04);
         }
 
-        .custom-search .results.active {
-            display: block;
-        }
-
-        .custom-search .result-item {
-            padding: 12px 18px;
-            cursor: pointer;
-            border-bottom: 1px solid #eee;
-            transition: background 0.15s;
-        }
-
-        .custom-search .result-item:hover {
-            background: #f0f7ff;
-        }
-
-        .result-title {
-            font-weight: 600;
-            font-size: 14px;
-            color: #1a2a3a;
-        }
-
-        .result-address {
-            font-size: 11px;
-            color: #6c8a9e;
-            margin-top: 2px;
-        }
-
-        .result-parking-stats {
-            font-size: 11px;
-            margin-top: 5px;
+        .app-header-top {
             display: flex;
-            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .app-title h1 {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1a2a3a;
+            letter-spacing: -0.3px;
+        }
+
+        .app-title .badge {
+            background: #2ecc71;
+            color: white;
+            font-size: 8px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 30px;
+            letter-spacing: 0.3px;
+            animation: pulse-badge 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-badge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .header-actions {
+            display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .free-spots-badge {
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
             background: #2ecc71;
-            color: white;
-            padding: 2px 10px;
-            border-radius: 30px;
-            font-weight: bold;
+            display: inline-block;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.7); }
+        }
+
+        .status-dot.error {
+            background: #e74c3c;
+        }
+
+        .status-time {
+            font-size: 9px;
+            color: #8a9aa8;
+            font-weight: 500;
+        }
+
+        /* ===== ИНФОРМАЦИЯ О ВЫБРАННОЙ ПАРКОВКЕ ===== */
+        .parking-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 10px;
+            padding: 6px 12px 6px 14px;
+            min-height: 38px;
+            transition: all 0.3s ease;
+        }
+
+        .parking-info.hidden {
+            display: none;
+        }
+
+        .parking-info .info-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .parking-info .info-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a2a3a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .parking-info .info-details {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 1px;
+        }
+
+        .parking-info .info-spots {
             font-size: 11px;
-            display: inline-flex;
+            font-weight: 600;
+            display: flex;
             align-items: center;
             gap: 4px;
         }
 
-        .free-spots-badge.low {
-            background: #e74c3c;
+        .parking-info .info-spots .free {
+            color: #2ecc71;
         }
 
-        .free-spots-badge.medium {
-            background: #f39c12;
+        .parking-info .info-spots .total {
+            color: #8a9aa8;
         }
 
-        .nearby-info {
-            color: #2c6e9e;
-            font-size: 10px;
+        .parking-info .info-status {
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
-        .route-panel-simple {
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(16px);
-            border-radius: 60px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-            pointer-events: auto;
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            width: auto;
-            align-self: center;
-            max-width: 90%;
+        .parking-info .info-status.green {
+            background: #e8f8ef;
+            color: #1a8a4a;
         }
 
-        .simple-panel-inner {
-            padding: 8px 20px;
+        .parking-info .info-status.yellow {
+            background: #fef6e0;
+            color: #b87a0a;
+        }
+
+        .parking-info .info-status.red {
+            background: #fde8e8;
+            color: #c0392b;
+        }
+
+        /* Кнопка маршрута */
+        .route-btn {
+            flex-shrink: 0;
+            background: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
+            gap: 4px;
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+            user-select: none;
+            white-space: nowrap;
+            height: 30px;
         }
 
-        .route-btn {
-            background: #ffcc00;
-            color: #1f2f38;
+        .route-btn:active {
+            transform: scale(0.92);
+            background: #27ae60;
+        }
+
+        .route-btn .icon {
+            font-size: 14px;
+        }
+
+        /* ===== ПОИСКОВАЯ СТРОКА ===== */
+        .search-wrapper {
+            position: relative;
+            width: 100%;
+            margin-top: 6px;
+        }
+
+        .search-wrapper input {
+            width: 100%;
+            padding: 7px 14px 7px 34px;
+            font-size: 13px;
+            font-weight: 400;
+            border: 1px solid #e8edf2;
+            border-radius: 10px;
+            outline: none;
+            background: #f8fafc;
+            transition: all 0.25s ease;
+            color: #1a2a3a;
+            height: 34px;
+        }
+
+        .search-wrapper input:focus {
+            border-color: #3498db;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(52,152,219,0.10);
+        }
+
+        .search-wrapper input::placeholder {
+            color: #9aabb8;
+            font-weight: 400;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9aabb8;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        .search-clear {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
             border: none;
-            padding: 10px 24px;
-            border-radius: 60px;
-            font-weight: bold;
-            font-size: 15px;
+            color: #b0c0cc;
+            font-size: 14px;
             cursor: pointer;
-            display: inline-flex;
+            padding: 4px;
+            display: none;
+            border-radius: 50%;
+            transition: background 0.2s;
+            width: 22px;
+            height: 22px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .search-clear:hover {
+            background: #eef2f6;
+        }
+
+        .search-clear.visible {
+            display: flex;
+        }
+
+        /* ===== РЕЗУЛЬТАТЫ ПОИСКА ===== */
+        .search-results {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            max-height: 260px;
+            overflow-y: auto;
+            z-index: 1001;
+            padding: 4px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-results .result-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f4f8;
+            transition: background 0.15s;
+        }
+
+        .search-results .result-item:active {
+            background: #f0f7ff;
+        }
+
+        .result-item .title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #1a2a3a;
+        }
+
+        .result-item .address {
+            font-size: 11px;
+            color: #8a9aa8;
+            margin-top: 1px;
+        }
+
+        .result-item .stats {
+            margin-top: 4px;
+            display: flex;
             align-items: center;
             gap: 8px;
-            transition: 0.2s;
-            text-decoration: none;
-            white-space: nowrap;
+            flex-wrap: wrap;
         }
 
-        .route-btn:hover {
-            background: #e6b800;
-            transform: translateY(-1px);
+        .spot-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 30px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
         }
 
+        .spot-badge.green { background: #e8f8ef; color: #1a8a4a; }
+        .spot-badge.yellow { background: #fef6e0; color: #b87a0a; }
+        .spot-badge.red { background: #fde8e8; color: #c0392b; }
+
+        .nearby-tag {
+            font-size: 9px;
+            color: #5a8db5;
+            background: #e8f2fa;
+            padding: 2px 8px;
+            border-radius: 30px;
+        }
+
+        .result-empty {
+            padding: 16px 14px;
+            text-align: center;
+            color: #8a9aa8;
+            font-size: 13px;
+        }
+
+        /* ===== КАРТА ===== */
+        .map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #dce5ed;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ===== ЛЕГЕНДА ===== */
         .legend {
             position: absolute;
-            bottom: max(20px, env(safe-area-inset-bottom, 20px));
-            right: max(12px, env(safe-area-inset-right, 12px));
-            background: rgba(255,255,255,0.94);
-            backdrop-filter: blur(4px);
-            padding: 10px 14px;
-            border-radius: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-size: 10px;
-            z-index: 1000;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 8px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            z-index: 800;
             pointer-events: none;
-            max-width: 160px;
-        }
-
-        .legend h4 {
-            margin: 0 0 5px 0;
-            font-size: 11px;
+            border: 1px solid rgba(255,255,255,0.3);
         }
 
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 3px;
-            font-size: 9px;
-        }
-
-        .legend-color {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            margin-right: 6px;
-        }
-
-        .legend-cluster {
-            width: 18px;
-            height: 18px;
-            background: #3498db;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 6px;
-            color: white;
+            gap: 6px;
             font-size: 8px;
-            font-weight: bold;
+            color: #2a3a4a;
+            padding: 2px 0;
+            font-weight: 500;
         }
 
-        .click-marker {
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        /* ===== КАСТОМНЫЕ МАРКЕРЫ ===== */
+        .marker {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: 700;
+            font-size: 12px;
+            font-family: -apple-system, Arial, sans-serif;
+            border: 2.5px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            touch-action: manipulation;
+            user-select: none;
+        }
+        .marker:active { transform: scale(0.85) !important; }
+
+        .cluster-marker {
             width: 42px;
             height: 42px;
-            background-color: #e74c3c;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            border: 2.5px solid white;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+            cursor: pointer;
+            transition: transform 0.2s;
+            touch-action: manipulation;
+            user-select: none;
+            background: #3498db;
+        }
+        .cluster-marker:active { transform: scale(0.92); }
+        .cluster-marker .count { font-size: 15px; line-height: 1; }
+        .cluster-marker .percent { font-size: 8px; opacity: 0.85; line-height: 1; }
+
+        /* ===== ВЫБРАННАЯ ТОЧКА ===== */
+        .selected-marker {
+            width: 44px;
+            height: 44px;
+            background: #e74c3c;
             border: 3px solid white;
             border-radius: 50%;
-            box-shadow: 0 3px 12px rgba(0,0,0,0.3);
-            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(231,76,60,0.4);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 22px;
             color: white;
-            font-weight: bold;
+            cursor: pointer;
+            animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.28); opacity: 0.9; }
+        @keyframes pop-in {
+            0% { transform: scale(0.2); opacity: 0; }
             100% { transform: scale(1); opacity: 1; }
         }
-        .click-marker.pulse {
-            animation: pulse 0.35s ease-in-out;
+
+        /* ===== SCROLLBAR ===== */
+        .search-results::-webkit-scrollbar {
+            width: 3px;
+        }
+        .search-results::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .search-results::-webkit-scrollbar-thumb {
+            background: #d0d8e0;
+            border-radius: 10px;
         }
 
-        .status-badge {
-            position: absolute;
-            bottom: max(20px, env(safe-area-inset-bottom, 20px));
-            left: max(12px, env(safe-area-inset-left, 12px));
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(8px);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            color: white;
-            z-index: 1000;
-            pointer-events: none;
-            font-family: monospace;
-            transition: all 0.3s;
+        /* ===== АДАПТИВ ===== */
+        @media (max-width: 480px) {
+            .app-header { padding: max(6px, env(safe-area-inset-top, 6px)) 8px 8px 8px; }
+            .app-title h1 { font-size: 15px; }
+            .parking-info { padding: 4px 10px 4px 12px; min-height: 34px; }
+            .parking-info .info-name { font-size: 12px; }
+            .parking-info .info-spots { font-size: 10px; }
+            .parking-info .info-status { font-size: 8px; padding: 1px 8px; }
+            .route-btn { font-size: 11px; padding: 5px 12px; height: 28px; }
+            .search-wrapper input { font-size: 12px; height: 32px; padding: 6px 12px 6px 30px; }
+            .search-icon { font-size: 12px; left: 8px; }
+            .legend { padding: 8px 6px; right: 6px; }
+            .legend-item { font-size: 7px; }
+            .legend-dot { width: 8px; height: 8px; }
         }
 
-        .status-badge.updated {
-            background: rgba(46, 204, 113, 0.9);
-            transform: scale(1.02);
-        }
-
-        @media (max-width: 650px) {
-            .top-combined-panel {
-                top: max(10px, env(safe-area-inset-top, 10px));
-                left: max(10px, env(safe-area-inset-left, 10px));
-                right: max(10px, env(safe-area-inset-right, 10px));
-                gap: 8px;
-            }
-            .custom-search input {
-                padding: 12px 16px;
-                font-size: 14px;
-            }
-            .route-btn {
-                padding: 8px 20px;
-                font-size: 14px;
-            }
-            .status-badge {
-                font-size: 9px;
-                bottom: max(15px, env(safe-area-inset-bottom, 15px));
-            }
+        @media (max-width: 380px) {
+            .parking-info .info-status { display: none; }
+            .route-btn .label { display: none; }
+            .route-btn { padding: 5px 10px; }
         }
     </style>
 </head>
 <body>
 
-<div class="map-container">
-    <div id="map"></div>
-    
-    <div class="top-combined-panel">
-        <div class="custom-search">
-            <input type="text" id="search-input" placeholder="🔍 Search for parking or address...">
-            <div class="results" id="search-results"></div>
-        </div>
-        
-        <div class="route-panel-simple">
-            <div class="simple-panel-inner">
-                <a href="#" id="dynamicRouteBtn" class="route-btn" target="_blank" rel="noopener noreferrer">
-                    🚗 Yandex Maps
-                </a>
+    <!-- ===== ВЕРХНЯЯ ПАНЕЛЬ ===== -->
+    <div class="app-header">
+        <!-- Строка с заголовком и статусом -->
+        <div class="app-header-top">
+            <div class="app-title">
+                <h1>🅿️ Parking</h1>
+                <span class="badge">LIVE</span>
+            </div>
+            <div class="header-actions">
+                <span class="status-time" id="statusTime">--:--:--</span>
+                <span class="status-dot" id="statusDot"></span>
             </div>
         </div>
+
+        <!-- ИНФОРМАЦИЯ О ПАРКОВКЕ + КНОПКА ROUTE -->
+        <div class="parking-info hidden" id="parkingInfo">
+            <div class="info-content">
+                <div class="info-name" id="infoName">Parking Name</div>
+                <div class="info-details">
+                    <span class="info-spots">
+                        🅿️ <span class="free" id="infoFree">0</span> / <span class="total" id="infoTotal">0</span>
+                    </span>
+                    <span class="info-status green" id="infoStatus">Free</span>
+                </div>
+            </div>
+            <button class="route-btn" id="routeBtn">
+                <span class="icon">📍</span>
+                <span class="label">Route</span>
+            </button>
+        </div>
+
+        <!-- ПОИСК -->
+        <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search parking or address..." autocomplete="off">
+            <button class="search-clear" id="searchClear">✕</button>
+        </div>
+
+        <!-- Результаты поиска -->
+        <div class="search-results" id="searchResults"></div>
     </div>
-    
+
+    <!-- ===== КАРТА ===== -->
+    <div class="map-container">
+        <div id="map"></div>
+    </div>
+
+    <!-- ===== ЛЕГЕНДА ===== -->
     <div class="legend">
-        <h4>🚗 Parking</h4>
-        <div class="legend-item"><div class="legend-color" style="background:#2ecc71;"></div><span>Free >40%</span></div>
-        <div class="legend-item"><div class="legend-color" style="background:#f39c12;"></div><span>15-40%</span></div>
-        <div class="legend-item"><div class="legend-color" style="background:#e74c3c;"></div><span>&lt;15%</span></div>
-        <div class="legend-item"><div class="legend-cluster">12</div><span>Cluster</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background:#2ecc71;"></span> Free</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#f39c12;"></span> Medium</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#e74c3c;"></span> Full</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#3498db;"></span> Cluster</div>
     </div>
-    
-    <div class="status-badge" id="statusBadge">
-        🔄 Loading...
-    </div>
-</div>
 
-<script src="https://api-maps.yandex.ru/v3/?apikey=bb36a041-64be-4fd6-b306-a246fe863173&lang=en_US"></script>
+    <script src="https://api-maps.yandex.ru/v3/?apikey=bb36a041-64be-4fd6-b306-a246fe863173&lang=en_US"></script>
 
-<script>
-    // ========== ВСЯ ЛОГИКА НА КЛИЕНТЕ ==========
-    let map = null;
-    let clusterer = null;
-    let currentClickMarker = null;
-    let updateInterval = null;
-    let currentParkings = [];
-    let markerCreationFunctions = null; // Храним функции создания маркеров
+    <script>
+        // ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =====
+        let map = null;
+        let clusterer = null;
+        let selectedMarker = null;
+        let updateInterval = null;
+        let currentParkings = [];
+        let markerFns = null;
+        let selectedParking = null;
+        let selectedCoords = null;
 
-    // Вспомогательные функции
-    function haversineDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371000;
-        const φ1 = lat1 * Math.PI / 180;
-        const φ2 = lat2 * Math.PI / 180;
-        const Δφ = (lat2 - lat1) * Math.PI / 180;
-        const Δλ = (lon2 - lon1) * Math.PI / 180;
-        
-        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-    
-    function countFreeSpotsInRadius(lat, lon, radiusMeters = 300) {
-        let totalFree = 0;
-        for (const p of currentParkings) {
-            const dist = haversineDistance(lat, lon, p.lat, p.lon);
-            if (dist <= radiusMeters) {
-                totalFree += p.free;
+        // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+        function haversine(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function countNearby(lat, lon, radius=300) {
+            let total = 0;
+            for (const p of currentParkings) {
+                if (haversine(lat, lon, p.lat, p.lon) <= radius) total += p.free;
+            }
+            return total;
+        }
+
+        function getColor(free, total) {
+            if (total === 0) return '#95a5a6';
+            const pct = free / total * 100;
+            if (pct > 40) return '#2ecc71';
+            if (pct > 15) return '#f39c12';
+            return '#e74c3c';
+        }
+
+        function getStatusClass(free, total) {
+            if (total === 0) return 'red';
+            const pct = free / total * 100;
+            if (pct > 40) return 'green';
+            if (pct > 15) return 'yellow';
+            return 'red';
+        }
+
+        function getStatusText(free, total) {
+            if (total === 0) return 'Full';
+            const pct = free / total * 100;
+            if (pct > 40) return 'Free';
+            if (pct > 15) return 'Medium';
+            return 'Full';
+        }
+
+        function updateStatus(message, isOk = true) {
+            const timeEl = document.getElementById('statusTime');
+            const dot = document.getElementById('statusDot');
+            if (timeEl) {
+                const now = new Date();
+                timeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+            if (dot) {
+                dot.className = 'status-dot' + (isOk ? '' : ' error');
             }
         }
-        return totalFree;
-    }
-    
-    function getColorByOccupancy(free, total) {
-        if (total === 0) return '#95a5a6';
-        const percent = (free / total) * 100;
-        if (percent > 40) return '#2ecc71';
-        if (percent > 15) return '#f39c12';
-        return '#e74c3c';
-    }
-    
-    function updateStatus(message, isSuccess = true) {
-        const badge = document.getElementById('statusBadge');
-        if (badge) {
-            badge.textContent = message;
-            badge.classList.add('updated');
-            if (!isSuccess) {
-                badge.style.background = 'rgba(231, 76, 60, 0.9)';
-            } else {
-                badge.style.background = 'rgba(46, 204, 113, 0.9)';
+
+        // ===== ОБНОВЛЕНИЕ ИНФО-ПАНЕЛИ =====
+        function updateParkingInfo(parking) {
+            const info = document.getElementById('parkingInfo');
+            if (!parking) {
+                info.classList.add('hidden');
+                return;
             }
-            setTimeout(() => {
-                badge.classList.remove('updated');
-                badge.style.background = 'rgba(0,0,0,0.7)';
-            }, 2000);
+
+            info.classList.remove('hidden');
+            document.getElementById('infoName').textContent = parking.name || 'Selected point';
+            document.getElementById('infoFree').textContent = parking.free ?? 0;
+            document.getElementById('infoTotal').textContent = parking.total ?? 0;
+
+            const statusEl = document.getElementById('infoStatus');
+            const cls = getStatusClass(parking.free, parking.total);
+            statusEl.className = 'info-status ' + cls;
+            statusEl.textContent = getStatusText(parking.free, parking.total);
+
+            selectedParking = parking;
         }
-    }
-    
-    // Загрузка данных с сервера
-    async function fetchParkings() {
-        try {
-            const response = await fetch('/api/parkings');
-            const data = await response.json();
-            if (data.parkings && Array.isArray(data.parkings)) {
-                currentParkings = data.parkings;
-                const time = new Date(data.timestamp).toLocaleTimeString();
-                updateStatus(`✅ Updated ${time} · ${currentParkings.length} spots`);
-                return true;
+
+        // ===== ЗАГРУЗКА ДАННЫХ =====
+        async function fetchParkings() {
+            try {
+                const resp = await fetch('/api/parkings');
+                const data = await resp.json();
+                if (data.parkings && Array.isArray(data.parkings)) {
+                    currentParkings = data.parkings;
+                    updateStatus(`✅ ${currentParkings.length} spots`, true);
+                    return true;
+                }
+                return false;
+            } catch(e) {
+                console.warn(e);
+                updateStatus('❌ Error', false);
+                return false;
             }
-            return false;
-        } catch (error) {
-            console.error('Fetch error:', error);
-            updateStatus('❌ Connection error', false);
-            return false;
         }
-    }
-    
-    // Обновление маркеров на карте - ПЕРЕСОЗДАЕМ КЛАСТЕРИЗАТОР
-    async function refreshMarkers() {
-        if (!map || !markerCreationFunctions) return;
-        
-        const success = await fetchParkings();
-        if (!success) return;
-        
-        // Создаём новые features на основе актуальных данных
-        const features = currentParkings.map((p) => ({
-            type: 'Feature',
-            id: p.id,
-            geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-            properties: {
-                id: p.id,
-                name: p.name,
-                free: p.free,
-                total: p.total,
-                address: p.address,
-                lat: p.lat,
-                lon: p.lon
-            }
-        }));
-        
-        // Удаляем старый кластеризатор
-        if (clusterer) {
-            map.removeChild(clusterer);
-        }
-        
-        // Создаем новый кластеризатор с обновленными данными
-        const { YMapClusterer, clusterByGrid } = markerCreationFunctions;
-        clusterer = new YMapClusterer({
-            features: features,
-            method: clusterByGrid({ gridSize: 70 }),
-            marker: createMarker,
-            cluster: createCluster
-        });
-        map.addChild(clusterer);
-        
-        console.log('🔄 Markers refreshed at', new Date().toLocaleTimeString());
-    }
-    
-    // Функции создания маркеров
-    let createMarker, createCluster;
-    
-    // Инициализация карты
-    async function initMap() {
-        try {
-            if (typeof ymaps3 === 'undefined') throw new Error('Yandex Maps API failed to load');
-            await ymaps3.ready;
-            
-            const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker, YMapListener } = ymaps3;
-            const clustererModule = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
-            const { YMapClusterer, clusterByGrid } = clustererModule;
-            
-            // Сохраняем функции для создания маркеров и кластеров
-            markerCreationFunctions = { YMapClusterer, clusterByGrid };
-            
-            map = new YMap(document.getElementById('map'), {
-                location: { center: [30.315868, 59.938732], zoom: 13 }
-            });
-            map.addChild(new YMapDefaultSchemeLayer());
-            map.addChild(new YMapDefaultFeaturesLayer());
-            
-            // Определяем createMarker
-            createMarker = (feature) => {
-                const props = feature.properties;
-                const color = getColorByOccupancy(props.free, props.total);
-                const div = document.createElement('div');
-                div.textContent = props.free;
-                div.style.cssText = `
-                    background-color: ${color};
-                    width: 34px; height: 34px; border-radius: 50%;
-                    display: flex; justify-content: center; align-items: center;
-                    color: white; font-weight: bold; font-size: 13px;
-                    font-family: Arial; border: 2px solid white;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-                    cursor: pointer;
-                    transition: transform 0.2s;
-                `;
-                div.onmouseenter = () => div.style.transform = 'scale(1.08)';
-                div.onmouseleave = () => div.style.transform = 'scale(1)';
-                div.onclick = (e) => {
-                    e.stopPropagation();
-                    setSelectedPoint(props.lat, props.lon, props.name);
-                };
-                return new YMapMarker({ coordinates: feature.geometry.coordinates }, div);
-            };
-            
-            // Определяем createCluster
-            createCluster = (coordinates, featuresList) => {
-                const count = featuresList.length;
-                let totalFree = 0, totalSpots = 0;
-                featuresList.forEach(f => {
-                    totalFree += f.properties.free;
-                    totalSpots += f.properties.total;
-                });
-                const avgPercent = totalSpots > 0 ? Math.round((totalFree / totalSpots) * 100) : 0;
-                const clusterDiv = document.createElement('div');
-                clusterDiv.style.cssText = `
-                    background-color: #3498db; width: 44px; height: 44px; border-radius: 50%;
-                    display: flex; flex-direction: column; align-items: center; justify-content: center;
-                    color: white; font-weight: bold; border: 2px solid white;
-                    box-shadow: 0 3px 8px rgba(0,0,0,0.3); cursor: pointer;
-                    transition: transform 0.2s;
-                `;
-                const spanCount = document.createElement('span');
-                spanCount.textContent = count;
-                spanCount.style.fontSize = '16px';
-                const spanPercent = document.createElement('span');
-                spanPercent.textContent = `${avgPercent}%`;
-                spanPercent.style.fontSize = '9px';
-                clusterDiv.appendChild(spanCount);
-                clusterDiv.appendChild(spanPercent);
-                clusterDiv.onmouseenter = () => clusterDiv.style.transform = 'scale(1.05)';
-                clusterDiv.onmouseleave = () => clusterDiv.style.transform = 'scale(1)';
-                clusterDiv.onclick = (e) => {
-                    e.stopPropagation();
-                    setSelectedPoint(coordinates[1], coordinates[0], `Cluster (${count} parkings)`);
-                    map.setLocation({ center: [coordinates[0], coordinates[1]], zoom: 15, duration: 400 });
-                };
-                return new YMapMarker({ coordinates: coordinates }, clusterDiv);
-            };
-            
-            // Загружаем начальные данные
-            await fetchParkings();
-            
-            const features = currentParkings.map((p) => ({
+
+        // ===== ОБНОВЛЕНИЕ МАРКЕРОВ =====
+        async function refreshMarkers() {
+            if (!map || !markerFns) return;
+            const ok = await fetchParkings();
+            if (!ok) return;
+
+            const features = currentParkings.map(p => ({
                 type: 'Feature',
                 id: p.id,
                 geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-                properties: {
-                    id: p.id,
-                    name: p.name,
-                    free: p.free,
-                    total: p.total,
-                    address: p.address,
-                    lat: p.lat,
-                    lon: p.lon
-                }
+                properties: { ...p, lat: p.lat, lon: p.lon }
             }));
-            
+
+            if (clusterer) map.removeChild(clusterer);
+
+            const { YMapClusterer, clusterByGrid } = markerFns;
             clusterer = new YMapClusterer({
-                features: features,
+                features,
                 method: clusterByGrid({ gridSize: 70 }),
-                marker: createMarker,
-                cluster: createCluster
+                marker: createMarkerFn,
+                cluster: createClusterFn
             });
             map.addChild(clusterer);
-            
-            // Функция для установки выбранной точки
-            function setSelectedPoint(lat, lon, title) {
-                removeClickMarker();
-                const markerEl = document.createElement('div');
-                markerEl.className = 'click-marker';
-                markerEl.textContent = '📍';
-                const newMarker = new YMapMarker({ coordinates: [lon, lat] }, markerEl);
-                map.addChild(newMarker);
-                currentClickMarker = newMarker;
-                markerEl.classList.add('pulse');
-                setTimeout(() => markerEl.classList.remove('pulse'), 400);
-                updateRouteButton(lat, lon);
-            }
-            
-            function removeClickMarker() {
-                if (currentClickMarker) {
-                    map.removeChild(currentClickMarker);
-                    currentClickMarker = null;
+
+            // Обновляем инфо о выбранной парковке
+            if (selectedParking) {
+                const updated = currentParkings.find(p => p.id === selectedParking.id);
+                if (updated) {
+                    updateParkingInfo(updated);
                 }
             }
-            
-            function updateRouteButton(lat, lon) {
-                const routeBtn = document.getElementById('dynamicRouteBtn');
-                if (routeBtn && lat && lon) {
-                    routeBtn.href = `https://yandex.ru/maps/?rtext=${lat},${lon}&rtt=auto`;
-                }
+        }
+
+        // ===== ФАБРИКИ МАРКЕРОВ =====
+        let createMarkerFn, createClusterFn;
+
+        function buildMarker(feature) {
+            const p = feature.properties;
+            const color = getColor(p.free, p.total);
+            const el = document.createElement('div');
+            el.className = 'marker';
+            el.style.background = color;
+            el.textContent = p.free;
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectPoint(p.lat, p.lon, p);
+            });
+            return new ymaps3.YMapMarker({ coordinates: feature.geometry.coordinates }, el);
+        }
+
+        function buildCluster(coords, features) {
+            const count = features.length;
+            let totalFree = 0, totalSpots = 0;
+            features.forEach(f => {
+                totalFree += f.properties.free;
+                totalSpots += f.properties.total;
+            });
+            const pct = totalSpots > 0 ? Math.round(totalFree / totalSpots * 100) : 0;
+            const el = document.createElement('div');
+            el.className = 'cluster-marker';
+            el.innerHTML = `<span class="count">${count}</span><span class="percent">${pct}%</span>`;
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                map.setLocation({ center: [coords[0], coords[1]], zoom: 15, duration: 400 });
+                // При клике на кластер не выбираем конкретную парковку
+                const fakeParking = { name: `Cluster (${count} spots)`, free: totalFree, total: totalSpots, id: -1 };
+                selectPoint(coords[1], coords[0], fakeParking);
+            });
+            return new ymaps3.YMapMarker({ coordinates: coords }, el);
+        }
+
+        // ===== ВЫБОР ТОЧКИ =====
+        function selectPoint(lat, lon, parkingData) {
+            removeSelected();
+            selectedCoords = { lat, lon };
+
+            const el = document.createElement('div');
+            el.className = 'selected-marker';
+            el.textContent = '📍';
+            const marker = new ymaps3.YMapMarker({ coordinates: [lon, lat] }, el);
+            map.addChild(marker);
+            selectedMarker = marker;
+
+            // Обновляем информацию
+            if (parkingData && parkingData.id !== -1) {
+                updateParkingInfo(parkingData);
+            } else if (parkingData && parkingData.name) {
+                // Это кластер
+                updateParkingInfo(parkingData);
+            } else {
+                // Просто точка на карте
+                const fake = { name: 'Selected point', free: 0, total: 0, id: -2 };
+                updateParkingInfo(fake);
             }
-            
-            // Клик по карте
-            map.addChild(new YMapListener({
-                layer: 'any',
-                onClick: (layer, coordinates, object) => {
-                    if (coordinates && coordinates.length === 2) {
-                        setSelectedPoint(coordinates[1], coordinates[0], "Point on map");
-                    }
-                }
-            }));
-            
-            document.getElementById('dynamicRouteBtn').href = 'https://yandex.ru/maps/';
-            
-            // ЗАПУСКАЕМ ОБНОВЛЕНИЕ КАЖДЫЕ 10 СЕКУНД
-            updateInterval = setInterval(async () => {
-                await refreshMarkers();
-            }, 10000);
-            
-            updateStatus('✅ Real-time: fetching every 10s');
-            
-            // ========== ПОИСК ==========
-            const searchInput = document.getElementById('search-input');
-            const resultsContainer = document.getElementById('search-results');
-            
-            function escapeHtml(str) {
-                if (!str) return '';
-                return str.replace(/[&<>]/g, function(m) {
-                    if (m === '&') return '&amp;';
-                    if (m === '<') return '&lt;';
-                    if (m === '>') return '&gt;';
-                    return m;
+
+            // Кнопка маршрута
+            const routeBtn = document.getElementById('routeBtn');
+            routeBtn.onclick = () => {
+                window.open(`https://yandex.ru/maps/?rtext=${lat},${lon}&rtt=auto`, '_blank');
+            };
+        }
+
+        function removeSelected() {
+            if (selectedMarker) {
+                map.removeChild(selectedMarker);
+                selectedMarker = null;
+            }
+        }
+
+        // ===== ИНИЦИАЛИЗАЦИЯ КАРТЫ =====
+        async function initMap() {
+            try {
+                if (typeof ymaps3 === 'undefined') throw new Error('Yandex Maps API not loaded');
+                await ymaps3.ready;
+
+                const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker, YMapListener } = ymaps3;
+                const clusterMod = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
+                const { YMapClusterer, clusterByGrid } = clusterMod;
+
+                markerFns = { YMapClusterer, clusterByGrid };
+                createMarkerFn = buildMarker;
+                createClusterFn = buildCluster;
+
+                map = new YMap(document.getElementById('map'), {
+                    location: { center: [30.315868, 59.938732], zoom: 13 }
                 });
-            }
-            
-            async function performSearch(query) {
-                if (!query || query.length < 2) {
-                    resultsContainer.classList.remove('active');
-                    return;
-                }
-                
-                const results = await geocode(query);
-                
-                if (results.length) {
-                    resultsContainer.innerHTML = '';
-                    for (const result of results) {
-                        const item = document.createElement('div');
-                        item.className = 'result-item';
-                        
-                        let badgeClass = 'free-spots-badge';
-                        let badgeEmoji = '🅿️';
-                        if (result.freeSpots === 0) {
-                            badgeClass += ' low';
-                            badgeEmoji = '⚠️';
-                        } else if (result.freeSpots < 10) {
-                            badgeClass += ' medium';
+                map.addChild(new YMapDefaultSchemeLayer());
+                map.addChild(new YMapDefaultFeaturesLayer());
+
+                // Загружаем данные
+                await fetchParkings();
+                const features = currentParkings.map(p => ({
+                    type: 'Feature',
+                    id: p.id,
+                    geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+                    properties: { ...p, lat: p.lat, lon: p.lon }
+                }));
+
+                clusterer = new YMapClusterer({
+                    features,
+                    method: clusterByGrid({ gridSize: 70 }),
+                    marker: createMarkerFn,
+                    cluster: createClusterFn
+                });
+                map.addChild(clusterer);
+
+                // Клик по карте
+                map.addChild(new YMapListener({
+                    layer: 'any',
+                    onClick: (layer, coords, obj) => {
+                        if (coords && coords.length === 2) {
+                            // Ищем ближайшую парковку
+                            let nearest = null;
+                            let minDist = Infinity;
+                            for (const p of currentParkings) {
+                                const d = haversine(coords[1], coords[0], p.lat, p.lon);
+                                if (d < minDist && d < 200) {
+                                    minDist = d;
+                                    nearest = p;
+                                }
+                            }
+                            if (nearest) {
+                                selectPoint(nearest.lat, nearest.lon, nearest);
+                            } else {
+                                const fake = { name: 'Selected point', free: 0, total: 0, id: -2 };
+                                selectPoint(coords[1], coords[0], fake);
+                            }
                         }
-                        
-                        item.innerHTML = `
-                            <div class="result-title">${escapeHtml(result.name)}</div>
-                            <div class="result-address">${escapeHtml(result.address.substring(0, 80))}</div>
-                            <div class="result-parking-stats">
-                                <span class="${badgeClass}">
-                                    ${badgeEmoji} ${result.freeSpots} free spots
-                                </span>
-                                <span class="nearby-info">📍 within 300m</span>
+                    }
+                }));
+
+                // ===== ПОИСК =====
+                const searchInput = document.getElementById('searchInput');
+                const resultsEl = document.getElementById('searchResults');
+                const clearBtn = document.getElementById('searchClear');
+
+                searchInput.addEventListener('input', () => {
+                    clearBtn.classList.toggle('visible', searchInput.value.length > 0);
+                    debounceSearch(searchInput.value);
+                });
+
+                searchInput.addEventListener('focus', () => {
+                    if (searchInput.value.length >= 2) debounceSearch(searchInput.value);
+                });
+
+                clearBtn.addEventListener('click', () => {
+                    searchInput.value = '';
+                    clearBtn.classList.remove('visible');
+                    resultsEl.classList.remove('active');
+                    searchInput.focus();
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!searchInput.contains(e.target) && !resultsEl.contains(e.target)) {
+                        resultsEl.classList.remove('active');
+                    }
+                });
+
+                let debounceTimer;
+                function debounceSearch(q) {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => performSearch(q), 300);
+                }
+
+                async function performSearch(query) {
+                    if (!query || query.length < 2) {
+                        resultsEl.classList.remove('active');
+                        return;
+                    }
+
+                    const results = await geocode(query);
+                    resultsEl.innerHTML = '';
+
+                    if (results.length === 0) {
+                        resultsEl.innerHTML = '<div class="result-empty">No parking found nearby</div>';
+                        resultsEl.classList.add('active');
+                        return;
+                    }
+
+                    for (const r of results) {
+                        const div = document.createElement('div');
+                        div.className = 'result-item';
+                        const cls = getStatusClass(r.freeSpots, 100);
+                        div.innerHTML = `
+                            <div class="title">${escapeHtml(r.name)}</div>
+                            <div class="address">${escapeHtml(r.address.substring(0, 70))}</div>
+                            <div class="stats">
+                                <span class="spot-badge ${cls}">🅿️ ${r.freeSpots} free</span>
+                                <span class="nearby-tag">📍 within 300m</span>
                             </div>
                         `;
-                        item.onclick = () => {
-                            map.setLocation({ center: [result.lon, result.lat], zoom: 16, duration: 400 });
-                            setSelectedPoint(result.lat, result.lon, result.name);
-                            resultsContainer.classList.remove('active');
-                            searchInput.value = result.name;
-                        };
-                        resultsContainer.appendChild(item);
+                        div.addEventListener('click', () => {
+                            map.setLocation({ center: [r.lon, r.lat], zoom: 16, duration: 400 });
+                            // Находим парковку в данных
+                            let found = null;
+                            for (const p of currentParkings) {
+                                if (haversine(r.lat, r.lon, p.lat, p.lon) < 50) {
+                                    found = p;
+                                    break;
+                                }
+                            }
+                            if (found) {
+                                selectPoint(r.lat, r.lon, found);
+                            } else {
+                                const fake = { name: r.name, free: r.freeSpots, total: 100, id: -2 };
+                                selectPoint(r.lat, r.lon, fake);
+                            }
+                            resultsEl.classList.remove('active');
+                            searchInput.value = r.name;
+                            clearBtn.classList.toggle('visible', true);
+                        });
+                        resultsEl.appendChild(div);
                     }
-                    resultsContainer.classList.add('active');
-                } else {
-                    resultsContainer.innerHTML = '<div class="result-item">No results found</div>';
-                    resultsContainer.classList.add('active');
+                    resultsEl.classList.add('active');
                 }
-            }
-            
-            // Геокодирование
-            async function geocode(query) {
-                if (!query || query.length < 2) return [];
-                try {
-                    const url = `https://geocode-maps.yandex.ru/1.x/?apikey=8fc5e4ba-8ce3-4230-8529-4898346c54ab&geocode=${encodeURIComponent(query)}&format=json&results=8`;
-                    const response = await fetch(url);
-                    const data = await response.json();
-                    const members = data.response?.GeoObjectCollection?.featureMember || [];
-                    
-                    const results = [];
-                    for (const member of members) {
-                        const geo = member.GeoObject;
-                        const name = geo.name;
-                        const address = geo.metaDataProperty?.GeocoderMetaData?.text || "";
-                        const pointStr = geo.Point?.pos;
-                        if (pointStr) {
-                            const [lon, lat] = pointStr.split(' ').map(Number);
-                            const freeSpots = countFreeSpotsInRadius(lat, lon, 300);
-                            results.push({ name, address, lat, lon, freeSpots });
+
+                async function geocode(query) {
+                    try {
+                        const url = `https://geocode-maps.yandex.ru/1.x/?apikey=8fc5e4ba-8ce3-4230-8529-4898346c54ab&geocode=${encodeURIComponent(query)}&format=json&results=8`;
+                        const resp = await fetch(url);
+                        const data = await resp.json();
+                        const members = data.response?.GeoObjectCollection?.featureMember || [];
+                        const out = [];
+                        for (const m of members) {
+                            const geo = m.GeoObject;
+                            const name = geo.name;
+                            const address = geo.metaDataProperty?.GeocoderMetaData?.text || '';
+                            const pos = geo.Point?.pos;
+                            if (pos) {
+                                const [lon, lat] = pos.split(' ').map(Number);
+                                const freeSpots = countNearby(lat, lon, 300);
+                                out.push({ name, address, lat, lon, freeSpots });
+                            }
                         }
+                        return out;
+                    } catch(e) {
+                        console.warn(e);
+                        return [];
                     }
-                    return results;
-                } catch(e) {
-                    console.warn(e);
-                    return [];
                 }
+
+                function escapeHtml(str) {
+                    const div = document.createElement('div');
+                    div.textContent = str;
+                    return div.innerHTML;
+                }
+
+                // ===== АВТООБНОВЛЕНИЕ =====
+                updateInterval = setInterval(refreshMarkers, 10000);
+                updateStatus('✅ Live', true);
+
+                console.log('✅ Parking Finder initialized');
+
+            } catch(err) {
+                console.error(err);
+                document.getElementById('map').innerHTML = `
+                    <div style="padding:30px;background:white;margin:20px;border-radius:16px;text-align:center;">
+                        <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+                        <div style="font-weight:600;color:#2a3a4a;">${err.message}</div>
+                        <div style="font-size:13px;color:#8a9aa8;margin-top:8px;">Please check your connection</div>
+                    </div>
+                `;
             }
-            
-            let debounce;
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(debounce);
-                debounce = setTimeout(() => performSearch(e.target.value), 400);
-            });
-            
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    clearTimeout(debounce);
-                    performSearch(searchInput.value);
-                }
-            });
-            
-            document.addEventListener('click', (e) => {
-                if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
-                    resultsContainer.classList.remove('active');
-                }
-            });
-            
-            console.log('✅ Map ready, auto-refresh every 10 seconds');
-            
-        } catch (err) {
-            console.error(err);
-            document.getElementById('map').innerHTML = `<div style="padding:40px;background:white;margin:20px;border-radius:20px;">❌ Error: ${err.message}</div>`;
         }
-    }
-    
-    // Запускаем карту
-    initMap();
-</script>
+
+        // ===== СТАРТ =====
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
 </body>
 </html>'''
     
