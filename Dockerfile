@@ -1,11 +1,11 @@
 FROM python:3.12-slim
 
 # Install OpenCV system dependencies
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglx-mesa0 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
-
 # Set working directory
 WORKDIR /app
 
