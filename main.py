@@ -9,6 +9,7 @@ import threading
 from datetime import datetime
 from typing import List, Dict, Any
 import asyncio
+from detect import detect_vehicles  
 
 app = FastAPI(title="Dynamic Parking Map Service")
 
@@ -58,12 +59,24 @@ async def background_updater():
     while True:
         await asyncio.sleep(3)
         for i, p in enumerate(active_parkings):
-            change = random.randint(-3, 3)
-            new_free = max(0, min(p["total"], p["free"] + change))
-            if random.random() < 0.1:
-                new_free = max(0, min(p["total"], new_free + random.randint(-8, 8)))
-            active_parkings[i] = {**p, "free": new_free, "last_update": datetime.now().isoformat()}
+            if i == 0:
+                nimg = random.randint(1, 4)
+
+                n_cars = detect_vehicles(f"data/t{nimg}.jpg", 
+                                        conf_threshold=0.1, 
+                                        output_path=f'tuned_{nimg}_26x_01.jpg')
+                
+                active_parkings[i] = {**p, "free": n_cars, "last_update": datetime.now().isoformat()}
+            else:
+                change = random.randint(-3, 3)
+                new_free = max(0, min(p["total"], p["free"] + change))
+                if random.random() < 0.1:
+                    new_free = max(0, min(p["total"], new_free + random.randint(-8, 8)))
+                active_parkings[i] = {**p, "free": new_free, "last_update": datetime.now().isoformat()}
+    
+
         print(f"🔄 Updated at {datetime.now().strftime('%H:%M:%S')}")
+
 
 @app.on_event("startup")
 async def startup_event():
