@@ -1,9 +1,8 @@
-FROM python:3.12-slim
+FROM python:3.12
 
 # Install OpenCV system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
-    libglx-mesa0 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 # Set working directory
