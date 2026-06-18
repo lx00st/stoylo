@@ -1,7 +1,7 @@
 FROM python:3.12
 
 # Install OpenCV system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN echo "force rebuild 1" && apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglx0 \
     libgl1-mesa-dri \
