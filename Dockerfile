@@ -3,9 +3,10 @@ FROM python:3.12
 # Install OpenCV system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
+    libglx0 \
+    libgl1-mesa-dri \
     libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
-# Set working directory
+    && rm -rf /var/lib/apt/lists/*# Set working directory
 WORKDIR /app
 
 # Install Python dependencies
