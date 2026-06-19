@@ -1,6 +1,11 @@
 import cv2
 from ultralytics import YOLO
 import os
+import torch
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+torch.set_num_threads(1)
 
 # 1. Загрузка предобученной модели YOLO
 # Модель 'yolov8n.pt' - это самая легкая и быстрая версия.
