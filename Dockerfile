@@ -1,13 +1,14 @@
-FROM python:3.12
+FROM python:3.12-slim
 
 # Install OpenCV system dependencies
-RUN echo "force rebuild 1" && apt-get update && apt-get install -y --no-install-recommends \
+#RUN echo "force rebuild 1" && apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglx0 \
     libgl1-mesa-dri \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
-    
+
 # Set working directory
 WORKDIR /app
 
