@@ -11,7 +11,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 # 1. Загрузка предобученной модели YOLO
 # Модель 'yolov8n.pt' - это самая легкая и быстрая версия.
 # Для большей точности можно использовать 'yolov8s.pt' или 'yolov8x.pt'
-MODEL_PATH = 'data/yolo26x.onnx'
+MODEL_PATH = '/data/yolo26x.onnx'
 
 if not os.path.exists(MODEL_PATH):
     print(f"Модель {MODEL_PATH} не найдена. Загрузка из интернета...")
