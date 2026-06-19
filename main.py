@@ -9,7 +9,7 @@ import threading
 from datetime import datetime
 from typing import List, Dict, Any
 import asyncio
-from detect import detect_vehicles  
+from detect_onx import detect_vehicles  
 
 app = FastAPI(title="Dynamic Parking Map Service")
 
@@ -62,7 +62,7 @@ async def background_updater():
             if i == 0:
                 nimg = random.randint(1, 4)
 
-                n_cars = detect_vehicles(f"data/t{nimg}.jpg", 
+                n_cars = detect_vehicles(f"images/t{nimg}.jpg", 
                                         conf_threshold=0.1, 
                                         output_path=f'tuned_{nimg}_26x_01.jpg')
                 
