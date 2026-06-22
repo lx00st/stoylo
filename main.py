@@ -9,7 +9,8 @@ import threading
 from datetime import datetime
 from typing import List, Dict, Any
 import asyncio
-from detect_onx import detect_vehicles  
+#from detect_onx import detect_vehicles  
+from detect_utl import detect_vehicles  
 
 app = FastAPI(title="Dynamic Parking Map Service")
 
